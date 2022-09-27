@@ -44,6 +44,14 @@ public:
    * @param attributes 字段
    */
   RC create(const char *path, const char *name, const char *base_dir, int attribute_count, const AttrInfo attributes[]);
+  
+  // /**
+  //  * 删除一个表
+  //  * @param path 元数据保存的文件(完整路径)
+  //  * @param name 表名
+  //  * @param base_dir 表数据存放的路径
+  //  */
+  RC destroy(const char *base_dir);
 
   /**
    * 打开一个表
