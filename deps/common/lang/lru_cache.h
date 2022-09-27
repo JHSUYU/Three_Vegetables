@@ -41,7 +41,7 @@ class LruCache {
   public:
     size_t operator() (ListNode *node) const {
       if (node == nullptr) {
-	return 0;
+	      return 0;
       }
       return hasher_(node->key_);
     }
@@ -54,11 +54,11 @@ class LruCache {
   public:
     bool operator() (ListNode * const node1, ListNode * const node2) const {
       if (node1 == node2) {
-	return true;
+	      return true;
       }
 
       if (node1 == nullptr || node2 == nullptr) {
-	return false;
+	      return false;
       }
 
       return pred_(node1->key_, node2->key_);
@@ -220,7 +220,7 @@ private:
 
 private:
   using SearchType = std::unordered_set<ListNode *, PListNodeHasher, PListNodePredicator>;
-  SearchType   searcher_;
+  SearchType   searcher_; // unordered_set
   ListNode   * lru_front_ = nullptr;
   ListNode   * lru_tail_  = nullptr;
 };

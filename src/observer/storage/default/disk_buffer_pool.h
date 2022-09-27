@@ -35,34 +35,14 @@ class DiskBufferPool;
 
 //
 #define BP_INVALID_PAGE_NUM (-1)
-#define BP_PAGE_SIZE (1 << 14)
+#define BP_SIZE_16K (1 << 14)
+#define BP_PAGE_SIZE BP_SIZE_16K
 #define BP_PAGE_DATA_SIZE (BP_PAGE_SIZE - sizeof(PageNum))
 #define BP_FILE_SUB_HDR_SIZE (sizeof(BPFileSubHeader))
-
 struct Page {
   PageNum page_num;
   char data[BP_PAGE_DATA_SIZE];
 };
-// sizeof(Page) should be equal to BP_PAGE_SIZE
-
-/**
- * BufferPool的文件第一个页面，存放一些元数据信息，包括了后面每页的分配信息。
- * TODO 1. 当前的做法，只能分配比较少的页面，你可以扩展一下，支持更多的页面或无限多的页面吗？
- *         可以参考Linux ext(n)和Windows NTFS等文件系统
- *      2. 当前使用bitmap存放页面分配情况，但是这种方法在页面非常多的时候，查找空闲页面的
- *         效率非常低，你有办法优化吗？
- */
-struct BPFileHeader {
-  int32_t page_count;        //! 当前文件一共有多少个页面
-  int32_t allocated_pages;   //! 已经分配了多少个页面
-  char    bitmap[0];         //! 页面分配位图, 第0个页面(就是当前页面)，总是1
-
-  /**
-   * 能够分配的最大的页面个数，即bitmap的字节数 乘以8
-   */
-  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count) - sizeof(allocated_pages)) * 8;
-};
-
 class Frame
 {
 public:
@@ -115,6 +95,27 @@ private:
   int           file_desc_ = -1;
   Page          page_;
 };
+// sizeof(Page) should be equal to BP_PAGE_SIZE
+
+/**
+ * BufferPool的文件第一个页面，存放一些元数据信息，包括了后面每页的分配信息。
+ * TODO 1. 当前的做法，只能分配比较少的页面，你可以扩展一下，支持更多的页面或无限多的页面吗？
+ *         可以参考Linux ext(n)和Windows NTFS等文件系统
+ *      2. 当前使用bitmap存放页面分配情况，但是这种方法在页面非常多的时候，查找空闲页面的
+ *         效率非常低，你有办法优化吗？
+ */
+struct BPFileHeader {
+  int32_t page_count;        //! 当前文件一共有多少个页面
+  int32_t allocated_pages;   //! 已经分配了多少个页面
+  char    bitmap[0];         //! 页面分配位图, 第0个页面(就是当前页面)，总是1
+
+  /**
+   * 能够分配的最大的页面个数，即bitmap的字节数 乘以8
+   */
+  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count) - sizeof(allocated_pages)) * 8;
+};
+
+
 
 class BPFrameId
 {
@@ -207,6 +208,53 @@ public:
 private:
   common::Bitmap   bitmap_;
   PageNum  current_page_num_ = -1;
+};
+
+
+template<typename K, typename V>
+class ExtendibleTable {
+    public:
+        // constructor
+        ExtendibleTable(size_t size);
+
+        // helper function to generate hash addressing
+        size_t hash_key(const K &key) const;
+
+        // helper function to get global & local depth
+        int get_global_depth() const;
+
+        int get_local_depth(int bucket_id) const;
+
+        int get_num_buckets() const;
+
+        // lookup and modifier
+        V find(const K &key);
+
+        bool remove(const K &key);
+
+        void insert(const K &key, const V &value);
+
+        // when extending, shuffle data
+        int shuffle_data(const K& key, size_t global_index);
+        size_t get_index(const K& key, const int depth) const;
+
+        // util func for close_file
+        std::vector<V> get_all_elements();
+        
+        struct Bucket {
+            Bucket(int depth): local_depth(depth){};
+            int local_depth;
+            std::map<K, V> data_map;
+            std::mutex latch_;
+        };
+    private:
+        // add your own member variables here
+        std::hash<K> hasher; // hash key
+        std::set<Bucket> bucket_set;
+        size_t global_depth;
+        size_t bucket_size;
+        std::vector<std::shared_ptr<Bucket>> buckets;
+        mutable std::mutex latch;
 };
 
 class DiskBufferPool
@@ -307,6 +355,15 @@ private:
   BPFileHeader *     file_header_ = nullptr;
   std::set<PageNum>  disposed_pages;
 
+
+  // hsy add
+  // disk buffer pool should store couple of pages
+  // std::set<Frame*>   frames_;
+  // maximum pages a disk buffer pool can contain
+  int                item_per_pool_;
+  // hashtable in each disk buffer pool, managed by the bpframe manager
+  ExtendibleTable<PageNum, Frame*>*  page_table_;
+  
 private:
   friend class BufferPoolIterator;
 };
@@ -332,3 +389,4 @@ private:
   std::unordered_map<std::string, DiskBufferPool *> buffer_pools_;
   std::unordered_map<int, DiskBufferPool *> fd_buffer_pools_;
 };
+

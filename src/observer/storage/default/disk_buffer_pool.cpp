@@ -25,6 +25,8 @@ using namespace common;
 static const PageNum BP_HEADER_PAGE = 0;
 static const int MEM_POOL_ITEM_NUM = 128;
 
+template
+class ExtendibleTable<PageNum, Frame*>;
 unsigned long current_time()
 {
   struct timespec tp;
@@ -37,6 +39,7 @@ BPFrameManager::BPFrameManager(const char *name) : allocator_(name)
 
 RC BPFrameManager::init(int pool_num)
 {
+  // mempoolsimple<Frame> init
   int ret =  allocator_.init(false, pool_num);
   if (ret == 0) {
     return RC::SUCCESS;
@@ -168,8 +171,9 @@ RC BufferPoolIterator::reset()
 
 ////////////////////////////////////////////////////////////////////////////////
 DiskBufferPool::DiskBufferPool(BufferPoolManager &bp_manager, BPFrameManager &frame_manager)
-  : bp_manager_(bp_manager), frame_manager_(frame_manager)
+  : bp_manager_(bp_manager), frame_manager_(frame_manager), item_per_pool_(MEM_POOL_ITEM_NUM)
 {
+  page_table_ = new ExtendibleTable<PageNum, Frame*>(64);
 }
 
 DiskBufferPool::~DiskBufferPool()
@@ -203,6 +207,10 @@ RC DiskBufferPool::open_file(const char *file_name)
   hdr_frame_->file_desc_ = fd;
   hdr_frame_->pin_count_ = 1;
   hdr_frame_->acc_time_ = current_time();
+  // hsy add
+  // BPFrameId frame_id(hdr_frame_->file_desc(), hdr_frame_->page_num());
+  page_table_->insert(hdr_frame_->page_num(), hdr_frame_);
+
   if ((rc = load_page(BP_HEADER_PAGE, hdr_frame_)) != RC::SUCCESS) {
     LOG_ERROR("Failed to load first page of %s, due to %s.", file_name, strerror(errno));
     hdr_frame_->pin_count_ = 0;
@@ -224,10 +232,22 @@ RC DiskBufferPool::close_file()
   if (file_desc_ < 0) {
     return rc;
   }
+  // TODO: implement bucket iteration in extendible table
+  // hdr_frame_->pin_count_--;
 
-  hdr_frame_->pin_count_--;
+  // hsy add 
+  // reduce pin_count for all pages in page table
+  // std::list<Frame *> used = frame_manager_.find_list(file_desc_);
+  std::vector<Frame *> used = page_table_->get_all_elements();
+  for(auto frame: used) {
+    frame->pin_count_--;
+  }
   if ((rc = purge_all_pages()) != RC::SUCCESS) {
-    hdr_frame_->pin_count_++;
+    // hdr_frame_->pin_count_++;
+    // hsy add
+    for(auto frame: used) {
+      frame->pin_count_++;
+    }
     LOG_ERROR("Failed to close %s, due to failed to purge all pages.", file_name_.c_str());
     return rc;
   }
@@ -269,13 +289,24 @@ RC DiskBufferPool::get_this_page(PageNum page_num, Frame **frame)
   allocated_frame->file_desc_ = file_desc_;
   allocated_frame->pin_count_ = 1;
   allocated_frame->acc_time_ = current_time();
+
+  // currently load page only read data from the file to the frame data structure
   if ((rc = load_page(page_num, allocated_frame)) != RC::SUCCESS) {
     LOG_ERROR("Failed to load page %s:%d", file_name_.c_str(), page_num);
     allocated_frame->pin_count_ = 0;
     purge_frame(page_num, allocated_frame);
     return rc;
   }
-
+  // hsy add
+  // maybe replace pages in the disk buffer pool's frame set
+  // BPFrameId frame_id(allocated_frame->file_desc(), allocated_frame->page_num());
+  
+  if(page_table_->find(allocated_frame->page_num()) != nullptr) {
+    // update frame in the disk buffer pool
+    page_table_->remove(allocated_frame->page_num());
+  } 
+  page_table_->insert(allocated_frame->page_num(), allocated_frame);
+  
   *frame = allocated_frame;
   return RC::SUCCESS;
 }
@@ -294,7 +325,7 @@ RC DiskBufferPool::allocate_page(Frame **frame)
         (file_header_->allocated_pages)++;
         file_header_->bitmap[byte] |= (1 << bit);
         // TODO,  do we need clean the loaded page's data?
-	hdr_frame_->mark_dirty();
+	      hdr_frame_->mark_dirty();
         return get_this_page(i, frame);
       }
     }
@@ -334,7 +365,7 @@ RC DiskBufferPool::allocate_page(Frame **frame)
     // skip return false, delay flush the extended page
     // return tmp;
   }
-
+  page_table_->insert(allocated_frame->page_num(), allocated_frame);
   *frame = allocated_frame;
   return RC::SUCCESS;
 }
@@ -349,6 +380,8 @@ RC DiskBufferPool::unpin_page(Frame *frame)
     if (pages_it != disposed_pages.end()) {
       LOG_INFO("Dispose file_desc:%d, page:%d", file_desc_, page_num);
       dispose_page(page_num);
+      // hsy add
+      page_table_->remove(page_num);
       disposed_pages.erase(pages_it);
     }
   }
@@ -396,6 +429,9 @@ RC DiskBufferPool::purge_frame(PageNum page_num, Frame *buf)
 
   LOG_DEBUG("Successfully purge frame =%p, page %d of %d(file desc)", buf, buf->page_num(), buf->file_desc_);
   frame_manager_.free(file_desc_, page_num, buf);
+  LOG_DEBUG("Successfully purge frame in page_table_");
+  // BPFrameId frame_id(buf->file_desc(), buf->page_num());
+  page_table_->remove(buf->page_num());
   return RC::SUCCESS;
 }
 
@@ -417,8 +453,11 @@ RC DiskBufferPool::purge_page(PageNum page_num)
 
 RC DiskBufferPool::purge_all_pages()
 {
-  std::list<Frame *> used = frame_manager_.find_list(file_desc_);
-  for (std::list<Frame *>::iterator it = used.begin(); it != used.end(); ++it) {
+  // std::list<Frame *> used = frame_manager_.find_list(file_desc_);
+  // hsy add
+  std::vector<Frame *> used = page_table_->get_all_elements();
+
+  for (std::vector<Frame *>::iterator it = used.begin(); it != used.end(); ++it) {
     Frame *frame = *it;
     if (frame->pin_count_ > 0) {
       LOG_WARN("The page has been pinned, file_desc:%d, pagenum:%d, pin_count=%d",
@@ -433,13 +472,20 @@ RC DiskBufferPool::purge_all_pages()
       }
     }
     frame_manager_.free(file_desc_, frame->page_.page_num, frame);
+    // hsy add
+    // purge page in page_table_
+    // BPFrameId frame_id(frame->file_desc(), frame->page_num());
+    page_table_->remove(frame->page_num());
   }
   return RC::SUCCESS;
 }
 
 RC DiskBufferPool::check_all_pages_unpinned()
 {
-  std::list<Frame *> frames = frame_manager_.find_list(file_desc_);
+  // std::list<Frame *> frames = frame_manager_.find_list(file_desc_);
+  // hsy add
+  std::vector<Frame *> frames = page_table_->get_all_elements();
+
   for (auto & frame : frames) {
     if (frame->page_num() == BP_HEADER_PAGE && frame->pin_count_ > 1) {
       LOG_WARN("This page has been pinned. file desc=%d, page num:%d, pin count=%d",
@@ -477,7 +523,8 @@ RC DiskBufferPool::flush_page(Frame &frame)
 
 RC DiskBufferPool::flush_all_pages()
 {
-  std::list<Frame *> used = frame_manager_.find_list(file_desc_);
+  // std::list<Frame *> used = frame_manager_.find_list(file_desc_);
+  std::vector<Frame *> used = page_table_->get_all_elements(); 
   for (Frame *frame : used) {
     RC rc = flush_page(*frame);
     if (rc != RC::SUCCESS) {
@@ -651,6 +698,11 @@ RC BufferPoolManager::close_file(const char *_file_name)
   }
 
   int fd = iter->second->file_desc();
+
+  // hsy add
+  DiskBufferPool* dbp = fd_buffer_pools_[fd];
+  dbp->flush_all_pages();
+
   fd_buffer_pools_.erase(fd);
 
   DiskBufferPool *bp = iter->second;
@@ -684,4 +736,168 @@ void BufferPoolManager::set_instance(BufferPoolManager *bpm)
 BufferPoolManager &BufferPoolManager::instance()
 {
   return *default_bpm;
+}
+
+
+template<typename K, typename V>
+ExtendibleTable<K, V>::ExtendibleTable(size_t size) {
+    this->bucket_size = size;
+    this->buckets.emplace_back(std::make_shared<Bucket>(0));
+    this->global_depth = 0;
+}
+
+/*
+ * helper function to calculate the hashing address of input key
+ */
+template<typename K, typename V>
+size_t ExtendibleTable<K, V>::hash_key(const K &key) const{
+    return hasher(key);
+}
+
+/*
+ * helper function to return global depth of hash table
+ * NOTE: you must implement this function in order to pass test
+ */
+template<typename K, typename V>
+int ExtendibleTable<K, V>::get_global_depth() const {
+    std::lock_guard<std::mutex> lock(latch);
+    return global_depth;
+}
+
+/*
+ * helper function to return local depth of one specific bucket
+ * NOTE: you must implement this function in order to pass test
+ */
+template<typename K, typename V>
+int ExtendibleTable<K, V>::get_local_depth(int bucket_id) const {
+    std::lock_guard<std::mutex> lock(latch);
+    if((int)buckets.size() <= bucket_id) {
+        return -1;
+    }
+    int depth = buckets[bucket_id].get()->local_depth;
+    return depth;
+}
+
+/*
+ * helper function to return current number of bucket in hash table
+ */
+template<typename K, typename V>
+int ExtendibleTable<K, V>::get_num_buckets() const {
+    std::lock_guard<std::mutex> lock(latch);
+    return this->buckets.size();
+}
+
+/*
+ * lookup function to find value associate with input key
+ */
+template<typename K, typename V>
+V ExtendibleTable<K, V>::find(const K &key) {
+    std::lock_guard<std::mutex> lock(latch);
+    size_t global_index = get_index(key, global_depth);
+    if(buckets[global_index].get()->data_map.find(key) != buckets[global_index].get()->data_map.end()) {
+        return buckets[global_index].get()->data_map[key];
+        // return true;
+    }
+    return nullptr;
+}
+
+/*
+ * delete <key,value> entry in hash table
+ * Shrink & Combination is not required for this project
+ */
+template<typename K, typename V>
+bool ExtendibleTable<K, V>::remove(const K &key) {
+    std::lock_guard<std::mutex> lock(latch);
+    size_t global_index = get_index(key, global_depth);
+    std::map<K, V> target_map = buckets[global_index].get()->data_map;
+    if(target_map.find(key) != target_map.end()) {
+        buckets[global_index].get()->data_map.erase(key);
+        return true;
+    }
+    return false;
+}
+
+/*
+ * insert <key,value> entry in hash table
+ * Split & Redistribute bucket when there is overflow and if necessary increase
+ * global depth
+ */
+template<typename K, typename V>
+void ExtendibleTable<K, V>::insert(const K &key, const V &value) {
+    std::lock_guard<std::mutex> lock(latch);
+    // case 1: no overflow
+    size_t global_index = get_index(key, global_depth);
+    auto target_map = buckets[global_index].get()->data_map;
+    if(target_map.size() + 1 <= bucket_size) {
+        (buckets[global_index].get()->data_map)[key] = value;
+        return;
+    }
+    // case 2: shuffle data
+    int max_cnt = target_map.size() + 1;
+    (buckets[global_index].get()->data_map)[key] = value;
+    while(max_cnt > bucket_size) {
+        max_cnt = shuffle_data(key, global_index);
+    }
+}
+template<typename K, typename V>
+int ExtendibleTable<K, V>::shuffle_data(const K& key, size_t global_index) {
+    // i = i_j
+    // need create new buckets
+    if(global_depth == buckets[global_index].get()->local_depth) {
+        global_depth++;
+        int size = buckets.size();
+        buckets.resize(size * 2);
+        // reversely get index(less significant to most significant)
+        for(int i = size; i < buckets.size(); i++) {
+            buckets[i] = buckets[i - size];
+        }
+        buckets[global_index].get()->local_depth = global_depth;
+        buckets[global_index + size] = std::make_shared<Bucket>(global_depth);
+        auto target_map = buckets[global_index].get()->data_map;
+        for(auto iter = target_map.begin(); iter != target_map.end(); iter++) {
+            size_t real_index = get_index(iter->first, global_depth);
+            if(real_index != global_index) {
+                buckets[real_index].get()->data_map[iter->first] = iter->second;
+                buckets[global_index].get()->data_map.erase(iter->first);
+            }
+        }
+    } else {
+        int prev_index = get_index(key, global_depth - 1);
+        int local_depth = buckets[prev_index].get()->local_depth;
+        buckets[global_index].get()->local_depth++;
+        auto target_map = buckets[prev_index].get()->data_map;
+        buckets[global_index] = std::make_shared<Bucket>(local_depth + 1);
+        for(auto iter = target_map.begin(); iter != target_map.end(); iter++) {
+            size_t real_index = get_index(iter->first, global_depth);
+            if(real_index == global_index) {
+                buckets[real_index].get()->data_map[iter->first] = iter->second;
+                buckets[prev_index].get()->data_map.erase(iter->first);
+            }
+        }
+    }
+    int max_cnt = 0;
+    for(int i = 0; i < buckets.size(); i++) {
+        if(max_cnt < buckets[i].get()->data_map.size()) {
+            max_cnt = buckets[i].get()->data_map.size();
+        }
+    }
+    return max_cnt;
+}
+
+template<typename K, typename V>
+size_t ExtendibleTable<K, V>::get_index(const K& key, const int depth) const {
+    size_t index = hash_key(key) & ((1 << depth) - 1);
+    return index;
+}
+
+template<typename K, typename V>
+std::vector<V> ExtendibleTable<K, V>::get_all_elements() {
+    std::vector<V> elements;
+    for(typename std::set<Bucket>::iterator bucket_ptr = bucket_set.begin(); bucket_ptr != bucket_set.end(); bucket_ptr++) {
+        std::map<K, V> data_map = bucket_ptr->data_map;
+        for(typename std::map<K, V>::iterator data_ptr = data_map.begin(); data_ptr != data_map.end(); data_ptr++) {
+            elements.emplace_back(data_ptr->second);
+        }
+    }
+    return elements;
 }
