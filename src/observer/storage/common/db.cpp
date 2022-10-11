@@ -91,12 +91,16 @@ RC Db::drop_table(const char *table_name)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  Table *table = find_table(table_name);
-  RC rc = table->destroy(path_.c_str());
+  Table *table = nullptr;
+  std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);
+  if (iter != opened_tables_.end()) {
+    table = iter->second;
+  }
+  rc = table->destroy(path_.c_str());
   if(rc != RC::SUCCESS)
     return rc;
 
-  // opened_tables_.erase(table);  // 删除成功的话，从表list中将它删除
+  opened_tables_.erase(iter);  // 删除成功的话，从表list中将它删除
   delete table;
   return RC::SUCCESS;
 }
