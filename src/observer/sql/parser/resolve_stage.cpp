@@ -103,6 +103,7 @@ void ResolveStage::handle_event(StageEvent *event)
 
   Query *query = sql_event->query();
   Stmt *stmt = nullptr;
+  LOG_INFO("before create_stmt");
   RC rc = Stmt::create_stmt(db, *query, stmt);
   if (rc != RC::SUCCESS && rc != RC::UNIMPLENMENT) {
     LOG_WARN("failed to create stmt. rc=%d:%s", rc, strrc(rc));
@@ -111,7 +112,7 @@ void ResolveStage::handle_event(StageEvent *event)
   }
 
   sql_event->set_stmt(stmt);
-
+  LOG_INFO("before executing handle event");
   query_cache_stage_->handle_event(sql_event);
 
   LOG_TRACE("Exit\n");

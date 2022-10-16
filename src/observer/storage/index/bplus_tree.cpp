@@ -1984,3 +1984,9 @@ RC BplusTreeScanner::fix_user_key(const char *user_key, int key_len, bool want_g
   *fixed_key = key_buf;
   return RC::SUCCESS;
 }
+
+// hsy add
+RC BplusTreeHandler::update_entry(const char *user_key, const RID *rid) {
+  LOG_DEBUG("currently not implemented");
+  return RC::SUCCESS;
+}

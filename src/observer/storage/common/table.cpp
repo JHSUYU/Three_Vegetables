@@ -604,11 +604,106 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   return rc;
 }
+// hsy add
+class RecordUpdater {
+public:
+  RecordUpdater(Table &table, Trx *trx, const char *attribute_name, const Value *value): table_(table), trx_(trx),
+  attribute_name_(attribute_name), value_(value)
+  {}
+  RC update_record(Record *record)
+  {
+    RC rc = RC::SUCCESS;
+    // generate new record
+    // char *new_record;
+    // int values_num = table_.table_meta().field_num();
+    // Value values[values_num];
+    // const IndexMeta *meta = table_.table_meta().find_index_by_field(attribute_name_);
+    const FieldMeta* field_meta = table_.table_meta_.field(attribute_name_);
+    int offset = field_meta->offset();
+    // table_.make_record(values_num, values, new_record);
+    // record->set_data(new_record);
+    char* data = record->data();
+    size_t copy_len = field_meta->len();
+    if (field_meta->type() == CHARS) {
+      const size_t data_len = strlen((const char *)value_->data);
+      if (copy_len > data_len) {
+        copy_len = data_len + 1;
+      }
+    }
+    memcpy(data + offset, value_->data, copy_len);
+    record->set_data(data);
+    rc = table_.update_record(trx_, record);
+    if (rc == RC::SUCCESS) {
+      updated_count_++;
+    }
+    return rc;
+  }
+
+  int updated_count() const
+  {
+    return updated_count_;
+  }
+private:
+  Table &table_;
+  Trx *trx_;
+  int updated_count_ = 0;
+  const char *attribute_name_;
+  const Value *value_;
+
+};
+
+// hsy add
+static RC record_reader_update_adapter(Record *record, void *context) {
+  RecordUpdater &record_updater = *(RecordUpdater *)context;
+  return record_updater.update_record(record);
+}
 
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
     const Condition conditions[], int *updated_count)
 {
-  return RC::GENERIC_ERROR;
+  // hsy add
+  if(attribute_name == nullptr || value == nullptr) {
+    LOG_ERROR("Invalid argument. table name: %s, attribute name=%s, values=%p", name(), attribute_name, value);
+    return RC::INVALID_ARGUMENT;
+  }
+  RecordUpdater record_updater(*this, trx, attribute_name, value);
+  RC rc = RC::SUCCESS;
+  if(condition_num == 0) {
+    LOG_DEBUG("condition num = 0");
+    rc = scan_record(trx, nullptr, -1, &record_updater, record_reader_update_adapter);
+    if(updated_count != nullptr) {
+      *updated_count = record_updater.updated_count();
+    }
+  } else {
+    CompositeConditionFilter filter;
+    filter.init(*this, conditions, condition_num);
+    LOG_INFO("start scan record for updating");
+    for(int i = 0; i < 12; i++) {
+      LOG_INFO("value[%d] = %d", i, ((char*)value->data)[i]);
+    }
+    rc = scan_record(trx, &filter, -1, &record_updater, record_reader_update_adapter);
+    if(updated_count != nullptr) {
+      *updated_count = record_updater.updated_count();
+    }
+    LOG_INFO("after updating, the updated_count = %d", *updated_count);
+  }
+  return rc;
+}
+RC Table::update_record(Trx *trx, Record *record/* old record in the page, should be new */) {
+  RC rc = RC::SUCCESS;
+  if (trx != nullptr) {
+    rc = trx->update_record(this, record);
+  } else {
+    rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to update indexes of record (rid=%d.%d). rc=%d:%s",
+                 record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+    } else {
+      LOG_DEBUG("execute record_handler_'s update_record");
+      rc = record_handler_->update_record(record);
+    }
+  }
+  return rc;
 }
 
 class RecordDeleter {
@@ -721,6 +816,20 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
+    if (rc != RC::SUCCESS) {
+      if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+        break;
+      }
+    }
+  }
+  return rc;
+}
+// hsy add
+RC Table::update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->update_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;

@@ -136,7 +136,7 @@ RC ParseStage::handle_request(StageEvent *event)
     query_destroy(query_result);
     return RC::INTERNAL;
   }
-
+  LOG_DEBUG("Query info in after parse: %s", query_result->sstr);
   sql_event->set_query(query_result);
   return RC::SUCCESS;
 }

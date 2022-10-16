@@ -181,8 +181,21 @@ RC RecordPageHandler::update_record(const Record *rec)
 	      rec->rid().slot_num, frame_->page_num());
     return RC::RECORD_RECORD_NOT_EXIST;
   } else {
+    LOG_DEBUG("update record in record page handler, rec->rid().slot_num = %d",
+    rec->rid().slot_num);
     char *record_data = get_record_data(rec->rid().slot_num);
+    if(record_data == nullptr) {
+      LOG_WARN("record_data is nullptr");
+    }
     memcpy(record_data, rec->data(), page_header_->record_real_size);
+    for(int i = 0; i < page_header_->record_real_size; i++) {
+      LOG_DEBUG("char[%d] = %x", i, rec->data()[i]);
+    }
+    LOG_DEBUG("record data in update_record: %s, record_real_size = %d", 
+    record_data, page_header_->record_real_size);
+    for(int i = 0; i < page_header_->record_real_size; i++) {
+      LOG_DEBUG("char[%d] = %x", i, record_data[i]);
+    }
     bitmap.set_bit(rec->rid().slot_num);
     frame_->mark_dirty();
     // LOG_TRACE("Update record. file_id=%d, page num=%d,slot=%d", file_id_, rec->rid.page_num, rec->rid.slot_num);
