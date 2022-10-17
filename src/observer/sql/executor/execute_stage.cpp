@@ -378,7 +378,36 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
-
+// hsy add
+// TODO: add multiple tables support
+static RC check_select_meta(SelectStmt *select_stmt) {
+  std::string table_name = select_stmt->tables()[0]->name();
+  BufferPoolManager &bpm = BufferPoolManager::instance();
+  DiskBufferPool *buffer_pool;
+  RC rc = RC::SUCCESS;
+  // std::cout << table_name << std::endl;
+  std::string path = "./miniob/db/sys/" + table_name + ".data";
+  int fd = ::open(path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    rc = RC::INVALID_ARGUMENT;
+    return rc;
+  }
+  close(fd);
+  Table *table = select_stmt->tables()[0];
+  TableMeta table_meta = table->table_meta();
+  std::unordered_set<std::string> field_names;
+  const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
+  for (FieldMeta meta: (*field_metas)) {
+    field_names.insert(meta.name());
+  }
+  std::vector<Field> fields = select_stmt->query_fields();
+  for (Field field: fields) {
+    if (field_names.find(field.field_name()) == field_names.end()) {
+      rc = RC::INVALID_ARGUMENT;
+    }
+  }
+  return rc;
+}
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
@@ -389,7 +418,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = RC::UNIMPLENMENT;
     return rc;
   }
-
+  rc = check_select_meta(select_stmt);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
   Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
   if (nullptr == scan_oper) {
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
