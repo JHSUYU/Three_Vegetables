@@ -83,7 +83,34 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
   LOG_INFO("Create table success. table name=%s", table_name);
   return RC::SUCCESS;
 }
+/**
+ * @func    drop_table
+ * @author  czy
+ * @date    2022-09-27 07:12
+ * @param   table_name
+ * @return  RC
+ */
+RC Db::drop_table(const char *table_name)
+{
+  RC rc = RC::SUCCESS;
+  if (opened_tables_.count(table_name) == 0) {
+    LOG_WARN("Table %s does not exist.", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
 
+  Table *table = nullptr;
+  std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);
+  if (iter != opened_tables_.end()) {
+    table = iter->second;
+  }
+  rc = table->destroy(path_.c_str());
+  if(rc != RC::SUCCESS)
+    return rc;
+
+  opened_tables_.erase(table_name);  // 删除成功的话，从表list中将它删除
+  delete table;
+  return RC::SUCCESS;
+}
 Table *Db::find_table(const char *table_name) const
 {
   std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);

@@ -55,6 +55,13 @@ public:
    * @param clog_manager clog管理器
    */
   RC open(const char *meta_file, const char *base_dir, CLogManager *clog_manager);
+  // /**
+  //  * 删除一个表
+  //  * @param path 元数据保存的文件(完整路径)
+  //  * @param name 表名
+  //  * @param base_dir 表数据存放的路径
+  //  */
+  RC destroy(const char *base_dir);
 
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
