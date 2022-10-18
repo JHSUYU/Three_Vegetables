@@ -702,7 +702,7 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   RecordUpdater record_updater(*this, trx, attribute_name, value);
   RC rc = RC::SUCCESS;
   if(condition_num == 0) {
-    LOG_DEBUG("condition num = 0");
+    LOG_TRACE("condition num = 0");
     rc = scan_record(trx, nullptr, -1, &record_updater, record_reader_update_adapter);
     if(updated_count != nullptr) {
       *updated_count = record_updater.updated_count();
@@ -710,15 +710,12 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   } else {
     CompositeConditionFilter filter;
     filter.init(*this, conditions, condition_num);
-    LOG_INFO("start scan record for updating");
-    for(int i = 0; i < 12; i++) {
-      LOG_INFO("value[%d] = %d", i, ((char*)value->data)[i]);
-    }
+    LOG_TRACE("start scan record for updating");
     rc = scan_record(trx, &filter, -1, &record_updater, record_reader_update_adapter);
     if(updated_count != nullptr) {
       *updated_count = record_updater.updated_count();
     }
-    LOG_INFO("after updating, the updated_count = %d", *updated_count);
+    LOG_TRACE("after updating, the updated_count = %d", *updated_count);
   }
   return rc;
 }
@@ -732,7 +729,7 @@ RC Table::update_record(Trx *trx, Record *record/* old record in the page, shoul
       LOG_ERROR("Failed to update indexes of record (rid=%d.%d). rc=%d:%s",
                  record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
     } else {
-      LOG_DEBUG("execute record_handler_'s update_record");
+      LOG_TRACE("execute record_handler_'s update_record");
       rc = record_handler_->update_record(record);
     }
   }
