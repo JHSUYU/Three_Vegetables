@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
+#include "sql/operator/update_operator.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -144,6 +145,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case StmtType::UPDATE: {
       //do_update((UpdateStmt *)stmt, session_event);
+      do_update(sql_event);
     } break;
     case StmtType::DELETE: {
       do_delete(sql_event);
@@ -417,6 +419,7 @@ static RC check_select_meta(SelectStmt *select_stmt) {
   }
   return rc;
 }
+
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
@@ -474,6 +477,43 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = project_oper.close();
   }
   session_event->set_response(ss.str());
+  return rc;
+}
+
+// hsy add
+RC ExecuteStage::do_update(SQLStageEvent *sql_event)
+{
+  if (sql_event->stmt() == nullptr) {
+    LOG_WARN("cannot find statement");
+    return RC::GENERIC_ERROR;
+  }
+  UpdateStmt *update_stmt = (UpdateStmt *)(sql_event->stmt());
+  SessionEvent *session_event = sql_event->session_event();
+  RC rc = RC::SUCCESS;
+  if (update_stmt->table() == nullptr) {
+    LOG_WARN("target table for updating does not exist.");
+    rc = RC::INVALID_ARGUMENT;
+    return rc;
+  }
+  LOG_DEBUG("try to create scan_oper");
+  Operator *scan_oper = try_to_create_index_scan_operator(update_stmt->filter_stmt());
+  if (nullptr == scan_oper) {
+    LOG_DEBUG("create index scan operator failed, start to create table scan operator");
+    scan_oper = new TableScanOperator(update_stmt->table());
+  }
+
+  DEFER([&] () {delete scan_oper;});
+  LOG_DEBUG("create pred_oper");
+  PredicateOperator pred_oper(update_stmt->filter_stmt());
+  pred_oper.add_child(scan_oper);
+  UpdateOperator update_oper(update_stmt);
+  update_oper.add_child(&pred_oper);
+  rc = update_oper.open();
+  if (rc != RC::SUCCESS) {
+    session_event->set_response("FAILURE\n");
+  } else {
+    session_event->set_response("SUCCESS\n");
+  }
   return rc;
 }
 

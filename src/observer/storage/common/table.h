@@ -59,6 +59,7 @@ public:
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
+  RC update_record(Trx *trx, Record *record);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
   RC delete_record(Trx *trx, Record *record);
   RC recover_delete_record(Record *record);
@@ -106,6 +107,8 @@ private:
 
   RC insert_entry_of_indexes(const char *record, const RID &rid);
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
+  // hsy add
+  RC update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
 
 private:
   RC init_record_handler(const char *base_dir);

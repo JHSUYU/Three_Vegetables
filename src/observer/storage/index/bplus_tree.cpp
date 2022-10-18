@@ -1872,7 +1872,11 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   }
   return RC::SUCCESS;
 }
-
+// hsy add
+RC BplusTreeHandler::update_entry(const char *user_key, const RID *rid) {
+  LOG_DEBUG("currently not implemented");
+  return RC::SUCCESS;
+}
 RC BplusTreeScanner::next_entry(RID *rid)
 {
   if (-1 == end_index_) {
