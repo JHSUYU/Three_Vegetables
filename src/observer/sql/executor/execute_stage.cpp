@@ -493,7 +493,44 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   if (update_stmt->table() == nullptr) {
     LOG_WARN("target table for updating does not exist.");
     rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
     return rc;
+  }
+  std::string table_name = update_stmt->table()->name();
+  BufferPoolManager &bpm = BufferPoolManager::instance();
+  DiskBufferPool *buffer_pool;
+  std::string path = "./miniob/db/sys/" + table_name + ".data";
+  int fd = ::open(path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  close(fd);
+  Table *table = update_stmt->table();
+  TableMeta table_meta = table->table_meta();
+  std::unordered_set<std::string> field_names;
+  const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
+  for (FieldMeta meta: (*field_metas)) {
+    field_names.insert(meta.name());
+  }
+  if (field_names.find(update_stmt->attribute_name()) == field_names.end()) {
+    LOG_WARN("invalid target column: %s", update_stmt->attribute_name());
+    rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  Condition* conditions = update_stmt->conditions();
+  int condition_num = update_stmt->value_amount();
+  LOG_TRACE("condition_num = %d", condition_num);
+  for (int i = 0; i < condition_num; i++) {
+    LOG_TRACE("condition judge:i = %d", i);
+    const Condition condition = conditions[i];
+    if (field_names.find(condition.left_attr.attribute_name) == field_names.end()) {
+      rc = RC::INVALID_ARGUMENT;
+      session_event->set_response("FAILURE\n");
+      return rc;
+    } 
   }
   LOG_DEBUG("try to create scan_oper");
   Operator *scan_oper = try_to_create_index_scan_operator(update_stmt->filter_stmt());
