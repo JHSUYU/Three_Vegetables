@@ -382,10 +382,8 @@ static bool check_date(int y, int m, int d)
 {
     static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     bool leap = (y%400==0 || (y%100 && y%4==0));
-    return y >= 1970
-        && (m > 0)&&(m <= 12)
-        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m])
-        && ((y < 2038) || (y == 2038 && m < 3));
+    return (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
 }
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
@@ -763,6 +761,7 @@ public:
       if (copy_len > data_len) {
         copy_len = data_len + 1;
       }
+      memcpy(data + offset, value_->data, copy_len);
     } else if (field_meta->type() == DATES) {
       LOG_TRACE("Enter\n");
       std::string str((char*)value_->data);

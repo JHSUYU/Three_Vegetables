@@ -51,7 +51,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
     LOG_ERROR("Invalid condition with unsupported compare operation: %d", comp_op);
     return RC::INVALID_ARGUMENT;
   }
-  LOG_DEBUG("left.value:%d, right.value:%d, attr_type = %d", left.value, (int*)right.value, attr_type);
+  // LOG_DEBUG("left.value:%d, right.value:%d, attr_type = %d", left.value, (int*)right.value, attr_type);
   left_ = left;
   right_ = right;
   attr_type_ = attr_type;
@@ -62,10 +62,8 @@ static bool check_date(int y, int m, int d)
 {
     static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     bool leap = (y%400==0 || (y%100 && y%4==0));
-    return y >= 1970
-        && (m > 0)&&(m <= 12)
-        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m])
-        && ((y < 2038) || (y == 2038 && m < 3));
+    return (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
 }
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
@@ -201,7 +199,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   }
 
   int cmp_result = 0;
-  LOG_DEBUG("left_value = %d", (int*)left_value);
+  // LOG_DEBUG("left_value = %d", (int*)left_value);
   switch (attr_type_) {
     case CHARS: {  // 字符串都是定长的，直接比较
       // 按照C字符串风格来定
