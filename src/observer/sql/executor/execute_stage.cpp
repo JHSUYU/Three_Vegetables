@@ -638,21 +638,22 @@ RC ExecuteStage::do_desc_table(SQLStageEvent *sql_event)
 
 RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
 {
+  LOG_TRACE("Enter\n");
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();
   Db *db = session->get_current_db();
   Trx *trx = session->current_trx();
   CLogManager *clog_manager = db->get_clog_manager();
-
+  LOG_TRACE("After initialization\n");
   if (stmt == nullptr) {
     LOG_WARN("cannot find statement");
     return RC::GENERIC_ERROR;
   }
-
+  LOG_TRACE("Before insert convert\n");
   InsertStmt *insert_stmt = (InsertStmt *)stmt;
   Table *table = insert_stmt->table();
-
+  LOG_TRACE("after insert convert\n");
   RC rc = table->insert_record(trx, insert_stmt->value_amount(), insert_stmt->values());
   if (rc == RC::SUCCESS) {
     if (!session->is_trx_multi_operation_mode()) {
@@ -677,6 +678,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   } else {
     session_event->set_response("FAILURE\n");
   }
+  LOG_TRACE("Exit\n");
   return rc;
 }
 

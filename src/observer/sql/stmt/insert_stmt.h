@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <regex>
+
 #include "rc.h"
 #include "sql/stmt/stmt.h"
 

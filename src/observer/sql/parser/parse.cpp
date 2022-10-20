@@ -57,6 +57,25 @@ void value_init_string(Value *value, const char *v)
   value->type = CHARS;
   value->data = strdup(v);
 }
+
+// int value_init_date(Value* value, int* res, const char* v) {
+//     LOG_TRACE("Enter\n");
+//     value->type = DATES;
+//     int y,m,d;
+//     sscanf(v, "%d-%d-%d", &y, &m, &d);//not check return value eq 3, lex guarantee
+//     bool b = check_date(y,m,d);
+//     LOG_DEBUG("y: %d, m: %d, d: %d\n", y, m, d);
+//     if(!b) {
+//       *res = -1;
+//       return -1;
+//     }
+//     int dv = y*10000+m*100+d;
+//     value->data = malloc(sizeof(dv));//TODO:check malloc failure
+//     memcpy(value->data, &dv, sizeof(dv));
+//     LOG_TRACE("Exit\n");
+//     *res = 0;
+//     return 0;
+// }
 void value_destroy(Value *value)
 {
   value->type = UNDEFINED;
@@ -221,6 +240,11 @@ void updates_destroy(Updates *updates)
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info)
 {
+  // hsy add
+  // check whether it is dates
+  if (attr_info->type == CHARS && attr_info->name == "date") {
+    attr_info->type = DATES;
+  }
   create_table->attributes[create_table->attribute_count++] = *attr_info;
 }
 
@@ -398,9 +422,11 @@ extern "C" int sql_parse(const char *st, Query *sqls);
 
 RC parse(const char *st, Query *sqln)
 {
+  LOG_TRACE("Enter\n");
   sql_parse(st, sqln);
-
-  if (sqln->flag == SCF_ERROR)
+  LOG_DEBUG("sqln->flag: %d", sqln->flag);
+  LOG_TRACE("Exit\n");
+  if (sqln->flag == SCF_ERROR || sqln->flag == -1)
     return SQL_SYNTAX;
   else
     return SUCCESS;
