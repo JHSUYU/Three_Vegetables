@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "common/lang/lower_bound.h"
+#include "common/lang/string.h"
 
 #define FIRST_INDEX_PAGE 1
 
@@ -1422,6 +1423,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
 
 RC BplusTreeHandler::get_entry(const char *user_key, int key_len, std::list<RID> &rids)
 {
+  LOG_TRACE("Enter\n");
   BplusTreeScanner scanner(*this);
   RC rc = scanner.open(user_key, key_len, true/*left_inclusive*/, user_key, key_len, true/*right_inclusive*/);
   if (rc != RC::SUCCESS) {
@@ -1440,6 +1442,7 @@ RC BplusTreeHandler::get_entry(const char *user_key, int key_len, std::list<RID>
   } else {
     rc = RC::SUCCESS;
   }
+  LOG_TRACE("Exit\n");
   return rc;
 }
 
@@ -1697,10 +1700,16 @@ BplusTreeScanner::~BplusTreeScanner()
 {
   close();
 }
-
+// hsy add
+RC BplusTreeHandler::update_entry(const char *user_key, const RID *rid) {
+  LOG_DEBUG("currently not implemented");
+  
+  return RC::SUCCESS;
+}
 RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inclusive,
                           const char *right_user_key, int right_len, bool right_inclusive)
 {
+  LOG_TRACE("Enter\n");
   RC rc = RC::SUCCESS;
   if (inited_) {
     LOG_WARN("tree scanner has been inited");
@@ -1711,6 +1720,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   
   // 校验输入的键值是否是合法范围
   if (left_user_key && right_user_key) {
+    LOG_TRACE("Enter\n");
     const auto &attr_comparator = tree_handler_.key_comparator_.attr_comparator();
     const int result = attr_comparator(left_user_key, right_user_key);
     if (result > 0 || // left < right
@@ -1721,6 +1731,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   }
 
   if (nullptr == left_user_key) {
+    LOG_TRACE("Enter\n");
     rc = tree_handler_.left_most_page(left_frame_);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to find left most page. rc=%d:%s", rc, strrc(rc));
@@ -1729,9 +1740,12 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
 
     iter_index_ = 0;
   } else {
+    LOG_TRACE("Enter\n");
+    LOG_DEBUG("attr_type = %d", tree_handler_.file_header_.attr_type);
     char *left_key = nullptr;
-
+    
     char *fixed_left_key = const_cast<char *>(left_user_key);
+    LOG_DEBUG("left_user_key = %s", left_user_key);
     if (tree_handler_.file_header_.attr_type == CHARS) {
       bool should_inclusive_after_fix = false;
       rc = fix_user_key(left_user_key, left_len, true/*greater*/, &fixed_left_key, &should_inclusive_after_fix);
@@ -1743,14 +1757,26 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
       if (should_inclusive_after_fix) {
 	      left_inclusive = true;
       }
-    }
-
+    } 
+    // else if (tree_handler_.file_header_.attr_type == DATES) {
+    //   std::vector<std::string> date;
+    //   common::split_string(left_user_key, "-", date);
+    //   if (date.size() != 3) {
+    //     return RC::INVALID_ARGUMENT;
+    //   }
+    //   int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+    //   LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+    //   int date_data = y * 10000 + m * 100 + d;
+    //   LOG_DEBUG("date_data = %s", std::to_string(date_data).c_str());
+    //   fixed_left_key = const_cast<char *>(std::to_string(date_data).c_str());
+    // }
+    // LOG_TRACE("Enter\n");
+    // LOG_DEBUG("fixed_left_key = %s", fixed_left_key);
     if (left_inclusive) {
       left_key = tree_handler_.make_key(fixed_left_key, *RID::min());
     } else {
       left_key = tree_handler_.make_key(fixed_left_key, *RID::max());
     }
-
     if (fixed_left_key != left_user_key) {
       delete[] fixed_left_key;
       fixed_left_key = nullptr;
@@ -1762,6 +1788,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
       tree_handler_.free_key(left_key);
       return rc;
     }
+    LOG_TRACE("Enter");
     LeafIndexNodeHandler left_node(tree_handler_.file_header_, left_frame_);
     int left_index = left_node.lookup(tree_handler_.key_comparator_, left_key);
     tree_handler_.free_key(left_key);
@@ -1769,7 +1796,8 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     if (left_index >= left_node.size()) { // 超出了当前页，就需要向后移动一个位置
       const PageNum next_page_num = left_node.next_page();
       if (next_page_num == BP_INVALID_PAGE_NUM) { // 这里已经是最后一页，说明当前扫描，没有数据
-	      return RC::SUCCESS;
+	      LOG_TRACE("Exit");
+        return RC::SUCCESS;
       }
 
       tree_handler_.disk_buffer_pool_->unpin_page(left_frame_);
@@ -1786,6 +1814,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
 
   // 没有指定右边界范围，那么就返回右边界最大值
   if (nullptr == right_user_key) {
+    LOG_TRACE("Enter\n");
     rc = tree_handler_.right_most_page(right_frame_);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to fetch right most page. rc=%d:%s", rc, strrc(rc));
@@ -1795,7 +1824,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     LeafIndexNodeHandler node(tree_handler_.file_header_, right_frame_);
     end_index_ = node.size() - 1;
   } else {
-
+    LOG_TRACE("Enter\n");
     char *right_key = nullptr;
     char *fixed_right_key = const_cast<char *>(right_user_key);
     bool should_include_after_fix = false;
@@ -1856,7 +1885,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     }
     end_index_ = right_index;
   }
-
+  LOG_DEBUG("left_user_key = %s, right_user_key = %s\n", left_user_key, right_user_key);
   // 判断是否左边界比右边界要靠后
   // 两个边界最多会多一页
   // 查找不存在的元素，或者不存在的范围数据时，可能会存在这个问题
@@ -1872,11 +1901,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
   }
   return RC::SUCCESS;
 }
-// hsy add
-RC BplusTreeHandler::update_entry(const char *user_key, const RID *rid) {
-  LOG_DEBUG("currently not implemented");
-  return RC::SUCCESS;
-}
+
 RC BplusTreeScanner::next_entry(RID *rid)
 {
   if (-1 == end_index_) {

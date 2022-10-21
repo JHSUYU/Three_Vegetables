@@ -849,6 +849,7 @@ RC Table::update_record(Trx *trx, Record *record/* old record in the page, shoul
   if (trx != nullptr) {
     rc = trx->update_record(this, record);
   } else {
+    LOG_TRACE("Enter\n");
     rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to update indexes of record (rid=%d.%d). rc=%d:%s",
@@ -1040,6 +1041,7 @@ Index *Table::find_index_by_field(const char *field_name) const
 
 IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)
 {
+  LOG_TRACE("Enter\n");
   const ConDesc *field_cond_desc = nullptr;
   const ConDesc *value_cond_desc = nullptr;
   if (filter.left().is_attr && !filter.right().is_attr) {
@@ -1068,7 +1070,7 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)
   if (nullptr == index) {
     return nullptr;
   }
-
+  LOG_TRACE("start compare");
   const char *left_key = nullptr;
   const char *right_key = nullptr;
   int left_len = 4;

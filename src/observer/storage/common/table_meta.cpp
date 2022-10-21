@@ -133,6 +133,7 @@ const FieldMeta *TableMeta::field(const char *name) const
 
 const FieldMeta *TableMeta::find_field_by_offset(int offset) const
 {
+  LOG_TRACE("Enter\n");
   for (const FieldMeta &field : fields_) {
     if (field.offset() == offset) {
       return &field;
@@ -162,6 +163,7 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
+  LOG_TRACE("Enter\n");
   for (const IndexMeta &index : indexes_) {
     if (0 == strcmp(index.field(), field)) {
       return &index;

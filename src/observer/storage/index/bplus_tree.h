@@ -43,6 +43,8 @@ public:
   }
 
   int operator()(const char *v1, const char *v2) const {
+    LOG_TRACE("Enter\n");
+    LOG_DEBUG("attr_type: %d", attr_type_);
     switch (attr_type_) {
     case INTS: 
     case DATES: { // hsy add
@@ -108,7 +110,10 @@ public:
 
   std::string operator()(const char *v) const {
     switch (attr_type_) {
-    case INTS: 
+    case INTS: {
+      return std::to_string(*(int*)v);
+    }
+    break;
     case DATES: {
       return std::to_string(*(int*)v);
     }

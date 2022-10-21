@@ -150,7 +150,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       LOG_DEBUG("date = %d", date_data);
       // right.value = (void*)(std::to_string(date_data).c_str());
       *(int*)right.value = date_data;
-      
+      LOG_DEBUG("right.value = %d", *(int*)right.value);
   } else if (condition.right_is_attr && type_right == DATES && type_left == CHARS) {
       std::string str((char*)left.value);
       std::match_results<std::string::iterator> result;
@@ -172,7 +172,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       int date_data = y * 10000 + m * 100 + d;
       LOG_DEBUG("date = %d", date_data);
       // left.value = (void*)(std::to_string(date_data).c_str());
-      left.value = (void*)(&date_data);
+      *(int*)left.value = date_data;
+      LOG_DEBUG("right.value = %d", *(int*)left.value);
   } else if (type_left != type_right) {
     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   }
