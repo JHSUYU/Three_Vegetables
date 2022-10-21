@@ -515,7 +515,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   int i;
   if(table==nullptr){
     sql_event->session_event()->set_response("FAILURE\n");
-    return RC::FAILURE;
+    return RC::SUCCESS;
   }
   ss<<response<<std::endl;
   for(j=0;j<tableMeta.index_num();j++){
