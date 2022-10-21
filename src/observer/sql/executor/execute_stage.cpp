@@ -512,6 +512,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   std::stringstream ss;
   int j;
   int i;
+  ss<<response<<std::endl;
   for(j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
     for(i=0;i<cur_index->attribute_num;i++){
