@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_STORAGE_COMMON_TABLE_H__
 
 #include "storage/common/table_meta.h"
+#include "common/lang/string.h"
 
 struct RID;
 class Record;
@@ -55,10 +56,18 @@ public:
    * @param clog_manager clog管理器
    */
   RC open(const char *meta_file, const char *base_dir, CLogManager *clog_manager);
+  // /**
+  //  * 删除一个表
+  //  * @param path 元数据保存的文件(完整路径)
+  //  * @param name 表名
+  //  * @param base_dir 表数据存放的路径
+  //  */
+  RC destroy(const char *base_dir);
 
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
+  RC update_record(Trx *trx, Record *record);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
   RC delete_record(Trx *trx, Record *record);
   RC recover_delete_record(Record *record);
@@ -107,6 +116,8 @@ private:
 
   RC insert_entry_of_indexes(const char *record, const RID &rid);
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
+  // hsy add
+  RC update_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
 
 private:
   RC init_record_handler(const char *base_dir);

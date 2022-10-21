@@ -479,8 +479,10 @@ RC RecordFileScanner::open_scan(DiskBufferPool &buffer_pool, ConditionFilter *co
     return rc;
   }
   condition_filter_ = condition_filter;
+  LOG_TRACE("fetch_next_record\n");
 
   rc = fetch_next_record();
+  LOG_DEBUG("rc = %d", rc);
   if (rc == RC::RECORD_EOF) {
     rc = RC::SUCCESS;
   }
@@ -491,6 +493,7 @@ RC RecordFileScanner::fetch_next_record()
 {
   RC rc = RC::SUCCESS;
   if (record_page_iterator_.is_valid()) {
+    LOG_TRACE("Enter\n");
     rc = fetch_next_record_in_page();
     if (rc == RC::SUCCESS || rc != RC::RECORD_EOF) {
       return rc;
@@ -498,6 +501,7 @@ RC RecordFileScanner::fetch_next_record()
   }
 
   while (bp_iterator_.has_next()) {
+     LOG_TRACE("Enter\n");
     PageNum page_num = bp_iterator_.next();
     record_page_handler_.cleanup();
     rc = record_page_handler_.init(*disk_buffer_pool_, page_num);
@@ -518,13 +522,15 @@ RC RecordFileScanner::fetch_next_record()
 
 RC RecordFileScanner::fetch_next_record_in_page()
 {
+   LOG_TRACE("Enter\n");
   RC rc = RC::SUCCESS;
   while (record_page_iterator_.has_next()) {
+     LOG_TRACE("Enter\n");
     rc = record_page_iterator_.next(next_record_);
     if (rc != RC::SUCCESS) {
       return rc;
     }
-
+    LOG_TRACE("Enter\n");
     if (condition_filter_ == nullptr || condition_filter_->filter(next_record_)) {
       return rc;
     }

@@ -24,11 +24,11 @@ const static Json::StaticString FIELD_OFFSET("offset");
 const static Json::StaticString FIELD_LEN("len");
 const static Json::StaticString FIELD_VISIBLE("visible");
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats", "dates"};
 
 const char *attr_type_to_string(AttrType type)
 {
-  if (type >= UNDEFINED && type <= FLOATS) {
+  if (type >= UNDEFINED && type <= DATES) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -144,7 +144,7 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field)
     LOG_ERROR("Visible field is not a bool value. json value=%s", visible_value.toStyledString().c_str());
     return RC::GENERIC_ERROR;
   }
-
+  LOG_DEBUG("type_value.asCString() = %s", type_value.asCString());
   AttrType type = attr_type_from_string(type_value.asCString());
   if (UNDEFINED == type) {
     LOG_ERROR("Got invalid field type. type=%d", type);

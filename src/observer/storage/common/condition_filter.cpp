@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <stddef.h>
 #include <math.h>
+#include <regex>
 #include "condition_filter.h"
 #include "storage/record/record_manager.h"
 #include "common/log/log.h"
@@ -41,7 +42,7 @@ DefaultConditionFilter::~DefaultConditionFilter()
 
 RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
 {
-  if (attr_type < CHARS || attr_type > FLOATS) {
+  if (attr_type < CHARS || attr_type > DATES) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
     return RC::INVALID_ARGUMENT;
   }
@@ -50,14 +51,20 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
     LOG_ERROR("Invalid condition with unsupported compare operation: %d", comp_op);
     return RC::INVALID_ARGUMENT;
   }
-
+  // LOG_DEBUG("left.value:%d, right.value:%d, attr_type = %d", left.value, (int*)right.value, attr_type);
   left_ = left;
   right_ = right;
   attr_type_ = attr_type;
   comp_op_ = comp_op;
   return RC::SUCCESS;
 }
-
+static bool check_date(int y, int m, int d)
+{
+    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    bool leap = (y%400==0 || (y%100 && y%4==0));
+    return (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
+}
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
   const TableMeta &table_meta = table.table_meta();
@@ -117,10 +124,61 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   //  }
   // NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
   // 但是选手们还是要实现。这个功能在预选赛中会出现
-  if (type_left != type_right) {
+  LOG_TRACE("Enter\n");
+  LOG_DEBUG("type_left = %d, type_right = %d", type_left, type_right);
+  if (condition.left_is_attr && type_left == DATES && type_right == CHARS) {
+      LOG_TRACE("Enter\n");
+      std::string str((char*)right.value);
+      std::match_results<std::string::iterator> result;
+      std::string pattern =  "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+      std::regex r(pattern);
+      std::regex_match(str.begin(), str.end(), result, r);
+      if(result.size() == 0) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      std::vector<std::string> date;
+      common::split_string(result[0].str(), "-", date);
+      if (date.size() != 3) {
+        return RC::INVALID_ARGUMENT;
+      }
+      int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+      LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+      bool b = check_date(y, m, d);
+      if (!b) return RC::INVALID_ARGUMENT;
+      int date_data = y * 10000 + m * 100 + d;
+      int* ptr_date = &date_data;
+      LOG_DEBUG("date = %d", date_data);
+      // right.value = (void*)(std::to_string(date_data).c_str());
+      *(int*)right.value = date_data;
+      LOG_DEBUG("right.value = %d", *(int*)right.value);
+  } else if (condition.right_is_attr && type_right == DATES && type_left == CHARS) {
+      std::string str((char*)left.value);
+      std::match_results<std::string::iterator> result;
+      std::string pattern =  "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+      std::regex r(pattern);
+      std::regex_match(str.begin(), str.end(), result, r);
+      if(result.size() == 0) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      std::vector<std::string> date;
+      common::split_string(result[0].str(), "-", date);
+      if (date.size() != 3) {
+        return RC::INVALID_ARGUMENT;
+      }
+      int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+      LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+      bool b = check_date(y, m, d);
+      if (!b) return RC::INVALID_ARGUMENT;
+      int date_data = y * 10000 + m * 100 + d;
+      LOG_DEBUG("date = %d", date_data);
+      // left.value = (void*)(std::to_string(date_data).c_str());
+      *(int*)left.value = date_data;
+      LOG_DEBUG("right.value = %d", *(int*)left.value);
+  } else if (type_left != type_right) {
     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   }
-
+  LOG_TRACE("End\n");
+  LOG_DEBUG("type_left = %d", type_left);
   return init(left, right, type_left, condition.comp);
 }
 
@@ -142,12 +200,14 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   }
 
   int cmp_result = 0;
+  // LOG_DEBUG("left_value = %d", (int*)left_value);
   switch (attr_type_) {
     case CHARS: {  // 字符串都是定长的，直接比较
       // 按照C字符串风格来定
       cmp_result = strcmp(left_value, right_value);
     } break;
-    case INTS: {
+    case INTS: 
+    case DATES: { // hsy add
       // 没有考虑大小端问题
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
       int left = *(int *)left_value;
@@ -208,6 +268,7 @@ RC CompositeConditionFilter::init(const ConditionFilter *filters[], int filter_n
 
 RC CompositeConditionFilter::init(Table &table, const Condition *conditions, int condition_num)
 {
+  LOG_TRACE("Enter\n");
   if (condition_num == 0) {
     return RC::SUCCESS;
   }

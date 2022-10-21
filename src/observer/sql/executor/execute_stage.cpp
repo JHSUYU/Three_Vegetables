@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
+#include "sql/operator/update_operator.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -144,6 +145,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case StmtType::UPDATE: {
       //do_update((UpdateStmt *)stmt, session_event);
+      do_update(sql_event);
     } break;
     case StmtType::DELETE: {
       do_delete(sql_event);
@@ -170,7 +172,10 @@ void ExecuteStage::handle_request(common::StageEvent *event)
       do_desc_table(sql_event);
     } break;
 
-    case SCF_DROP_TABLE:
+    case SCF_DROP_TABLE: {
+      do_drop_table(sql_event);
+      break;
+    }
     case SCF_DROP_INDEX:
     case SCF_SHOW_INDEX:{
       LOG_TRACE("enter case switch show index\n");
@@ -394,6 +399,33 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
+static RC check_select_meta(SelectStmt *select_stmt) {
+  std::string table_name = select_stmt->tables()[0]->name();
+  BufferPoolManager &bpm = BufferPoolManager::instance();
+  DiskBufferPool *buffer_pool;
+  RC rc = RC::SUCCESS;
+  std::string path = "./miniob/db/sys/" + table_name + ".data";
+  int fd = ::open(path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    rc = RC::INVALID_ARGUMENT;
+    return rc;
+  }
+  close(fd);
+  Table *table = select_stmt->tables()[0];
+  TableMeta table_meta = table->table_meta();
+  std::unordered_set<std::string> field_names;
+  const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
+  for (FieldMeta meta: (*field_metas)) {
+    field_names.insert(meta.name());
+  }
+  std::vector<Field> fields = select_stmt->query_fields();
+  for (Field field: fields) {
+    if (field_names.find(field.field_name()) == field_names.end()) {
+      rc = RC::INVALID_ARGUMENT;
+    }
+  }
+  return rc;
+}
 
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
@@ -405,7 +437,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = RC::UNIMPLENMENT;
     return rc;
   }
-
+  rc = check_select_meta(select_stmt);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
   Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
   if (nullptr == scan_oper) {
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
@@ -452,6 +487,80 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   return rc;
 }
 
+// hsy add
+RC ExecuteStage::do_update(SQLStageEvent *sql_event)
+{
+  if (sql_event->stmt() == nullptr) {
+    LOG_WARN("cannot find statement");
+    return RC::GENERIC_ERROR;
+  }
+  UpdateStmt *update_stmt = (UpdateStmt *)(sql_event->stmt());
+  SessionEvent *session_event = sql_event->session_event();
+  RC rc = RC::SUCCESS;
+  if (update_stmt->table() == nullptr) {
+    LOG_WARN("target table for updating does not exist.");
+    rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  std::string table_name = update_stmt->table()->name();
+  BufferPoolManager &bpm = BufferPoolManager::instance();
+  DiskBufferPool *buffer_pool;
+  std::string path = "./miniob/db/sys/" + table_name + ".data";
+  int fd = ::open(path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  close(fd);
+  Table *table = update_stmt->table();
+  TableMeta table_meta = table->table_meta();
+  std::unordered_set<std::string> field_names;
+  const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
+  for (FieldMeta meta: (*field_metas)) {
+    field_names.insert(meta.name());
+  }
+  if (field_names.find(update_stmt->attribute_name()) == field_names.end()) {
+    LOG_WARN("invalid target column: %s", update_stmt->attribute_name());
+    rc = RC::INVALID_ARGUMENT;
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  Condition* conditions = update_stmt->conditions();
+  int condition_num = update_stmt->value_amount();
+  LOG_TRACE("condition_num = %d", condition_num);
+  for (int i = 0; i < condition_num; i++) {
+    LOG_TRACE("condition judge:i = %d", i);
+    const Condition condition = conditions[i];
+    if (field_names.find(condition.left_attr.attribute_name) == field_names.end()) {
+      rc = RC::INVALID_ARGUMENT;
+      session_event->set_response("FAILURE\n");
+      return rc;
+    } 
+  }
+  LOG_DEBUG("try to create scan_oper");
+  Operator *scan_oper = try_to_create_index_scan_operator(update_stmt->filter_stmt());
+  if (nullptr == scan_oper) {
+    LOG_DEBUG("create index scan operator failed, start to create table scan operator");
+    scan_oper = new TableScanOperator(update_stmt->table());
+  }
+
+  DEFER([&] () {delete scan_oper;});
+  LOG_DEBUG("create pred_oper");
+  PredicateOperator pred_oper(update_stmt->filter_stmt());
+  pred_oper.add_child(scan_oper);
+  UpdateOperator update_oper(update_stmt);
+  update_oper.add_child(&pred_oper);
+  rc = update_oper.open();
+  if (rc != RC::SUCCESS) {
+    session_event->set_response("FAILURE\n");
+  } else {
+    session_event->set_response("SUCCESS\n");
+  }
+  return rc;
+}
+
 RC ExecuteStage::do_help(SQLStageEvent *sql_event)
 {
   SessionEvent *session_event = sql_event->session_event();
@@ -490,7 +599,7 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
   Table *table = db->find_table(create_index.relation_name);
   if (nullptr == table) {
     session_event->set_response("FAILURE\n");
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+    return RC::SUCCESS;
   }
 
   RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, &create_index);
@@ -502,9 +611,12 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   LOG_TRACE("enter do show index\n");
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
-
   const ShowIndex &show_index=sql_event->query()->sstr.show_index;
   Table* table=db->find_table(show_index.table_name);
+  if (nullptr == table) {
+    session_event->set_response("FAILURE\n");
+    return RC::SUCCESS;
+  }
   const TableMeta tableMeta=table->table_meta();
   std::vector<Index *> all_indexes;
   all_indexes=table->find_all_index();
@@ -567,21 +679,22 @@ RC ExecuteStage::do_desc_table(SQLStageEvent *sql_event)
 
 RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
 {
+  LOG_TRACE("Enter\n");
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();
   Db *db = session->get_current_db();
   Trx *trx = session->current_trx();
   CLogManager *clog_manager = db->get_clog_manager();
-
+  LOG_TRACE("After initialization\n");
   if (stmt == nullptr) {
     LOG_WARN("cannot find statement");
     return RC::GENERIC_ERROR;
   }
-
+  LOG_TRACE("Before insert convert\n");
   InsertStmt *insert_stmt = (InsertStmt *)stmt;
   Table *table = insert_stmt->table();
-
+  LOG_TRACE("after insert convert\n");
   RC rc = table->insert_record(trx, insert_stmt->value_amount(), insert_stmt->values());
   if (rc == RC::SUCCESS) {
     if (!session->is_trx_multi_operation_mode()) {
@@ -606,6 +719,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   } else {
     session_event->set_response("FAILURE\n");
   }
+  LOG_TRACE("Exit\n");
   return rc;
 }
 
@@ -656,6 +770,26 @@ RC ExecuteStage::do_delete(SQLStageEvent *sql_event)
   return rc;
 }
 
+/**
+ * @func    do_drop_table
+ * @author  czy
+ * @date    2022-09-27 07:12
+ * @param   sql_event
+ * @return  RC
+ */
+RC ExecuteStage::do_drop_table(SQLStageEvent *sql_event)
+{
+  const DropTable &drop_table = sql_event->query()->sstr.drop_table;
+  SessionEvent *session_event = sql_event->session_event();
+  Db *db = session_event->session()->get_current_db();
+  RC rc = db->drop_table(drop_table.relation_name);
+  if (rc == RC::SUCCESS) {
+    session_event->set_response("SUCCESS\n");
+  } else {
+    session_event->set_response("FAILURE\n");
+  }
+  return rc;
+}
 RC ExecuteStage::do_begin(SQLStageEvent *sql_event)
 {
   RC rc = RC::SUCCESS;

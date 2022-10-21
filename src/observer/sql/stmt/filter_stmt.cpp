@@ -19,6 +19,9 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/db.h"
 #include "storage/common/table.h"
 
+#include <vector>
+#include <regex>
+
 FilterStmt::~FilterStmt()
 {
   for (FilterUnit *unit : filter_units_) {
@@ -77,7 +80,13 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
 
   return RC::SUCCESS;
 }
-
+static bool check_date(int y, int m, int d)
+{
+    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    bool leap = (y%400==0 || (y%100 && y%4==0));
+    return (m > 0)&&(m <= 12)
+        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
+}
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
 				  const Condition &condition, FilterUnit *&filter_unit)
 {
@@ -99,12 +108,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       LOG_WARN("cannot find attr");
       return rc;
     }
+    LOG_TRACE("Enter\n");
     left = new FieldExpr(table, field);
   } else {
+    LOG_TRACE("Enter\n");
     left = new ValueExpr(condition.left_value);
   }
 
   if (condition.right_is_attr) {
+     LOG_TRACE("Enter\n");
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
     rc = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);  
@@ -114,8 +126,47 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
       return rc;
     }
     right = new FieldExpr(table, field);
+    Condition condition_cpy = condition;
+    if (((FieldExpr*)right)->field().attr_type() == DATES) {
+        std::vector<std::string> date;
+        common::split_string((char*)condition.left_value.data, "-", date);
+      if (date.size() != 3) {
+        return RC::INVALID_ARGUMENT;
+      }
+      int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+      LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+      bool b = check_date(y, m, d);
+      if (!b) return RC::INVALID_ARGUMENT;
+      int date_data = y * 10000 + m * 100 + d;
+      LOG_DEBUG("date = %d", date_data);
+      const char* dates = std::to_string(date_data).c_str();
+      *(int*)condition_cpy.left_value.data = atoi(dates);
+      LOG_DEBUG("condition_cpy.left_value.data = %d", (int*)condition_cpy.left_value.data);
+      condition_cpy.left_value.type = DATES;
+      delete left;
+      left = new ValueExpr(condition_cpy.left_value);
+    }
   } else {
-    right = new ValueExpr(condition.right_value);
+    LOG_TRACE("Enter\n");
+    Condition condition_cpy = condition;
+    if (((FieldExpr*)left)->field().attr_type() == DATES) {
+        std::vector<std::string> date;
+        common::split_string((char*)condition.right_value.data, "-", date);
+      if (date.size() != 3) {
+        return RC::INVALID_ARGUMENT;
+      }
+      int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+      LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+      bool b = check_date(y, m, d);
+      if (!b) return RC::INVALID_ARGUMENT;
+      int date_data = y * 10000 + m * 100 + d;
+      LOG_DEBUG("date = %d", date_data);
+      const char* dates = std::to_string(date_data).c_str();
+      *(int*)condition_cpy.right_value.data = atoi(dates);
+      LOG_DEBUG("condition_cpy.right_value.data = %d", *(int*)condition_cpy.right_value.data);
+      condition_cpy.right_value.type = DATES;
+    }
+    right = new ValueExpr(condition_cpy.right_value);
   }
 
   filter_unit = new FilterUnit;

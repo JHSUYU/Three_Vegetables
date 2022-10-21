@@ -43,8 +43,11 @@ public:
   }
 
   int operator()(const char *v1, const char *v2) const {
+    LOG_TRACE("Enter\n");
+    LOG_DEBUG("attr_type: %d", attr_type_);
     switch (attr_type_) {
-    case INTS: {
+    case INTS: 
+    case DATES: { // hsy add
       return compare_int((void *)v1, (void *)v2);
     }
       break;
@@ -108,6 +111,10 @@ public:
   std::string operator()(const char *v) const {
     switch (attr_type_) {
     case INTS: {
+      return std::to_string(*(int*)v);
+    }
+    break;
+    case DATES: {
       return std::to_string(*(int*)v);
     }
       break;
@@ -414,6 +421,9 @@ public:
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
   RC delete_entry(const char *user_key, const RID *rid);
+
+  // hsy add
+  RC update_entry(const char *user_key, const RID *rid);
 
   bool is_empty() const;
 
