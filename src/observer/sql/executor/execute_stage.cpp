@@ -502,6 +502,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   LOG_TRACE("enter do show index\n");
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
+
   const ShowIndex &show_index=sql_event->query()->sstr.show_index;
   Table* table=db->find_table(show_index.table_name);
   const TableMeta tableMeta=table->table_meta();
@@ -512,6 +513,10 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   std::stringstream ss;
   int j;
   int i;
+  if(table==nullptr){
+    sql_event->session_event()->set_response("FAILURE\n");
+    return RC::FAILURE;
+  }
   ss<<response<<std::endl;
   for(j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
