@@ -62,6 +62,7 @@ QUOTE            [\'\"]
 [Dd][Ee][Ll][Ee][Tt][Ee]                             RETURN_TOKEN(DELETE);
 [Uu][Pp][Dd][Aa][Tt][Ee]                             RETURN_TOKEN(UPDATE);
 [Ss][Ee][Tt]                                         RETURN_TOKEN(SET);
+[Uu][Nn][Ii][Qq][Uu][Ee]                             RETURN_TOKEN(UNIQUE);
 [Bb][Ee][Gg][Ii][Nn]                                 RETURN_TOKEN(TRX_BEGIN);
 [Cc][Oo][Mm][Mm][Ii][Tt]                             RETURN_TOKEN(TRX_COMMIT);
 [Rr][Oo][Ll][Ll][Bb][Aa][Cc][Kk]                     RETURN_TOKEN(TRX_ROLLBACK);

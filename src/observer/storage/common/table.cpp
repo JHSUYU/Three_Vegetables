@@ -549,7 +549,7 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
   return inserter.insert_index(record);
 }
 
-RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
+RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, const CreateIndex* create_index)
 {
   if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -569,6 +569,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   IndexMeta new_index_meta;
   RC rc = new_index_meta.init(index_name, *field_meta);
+
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
              name(), index_name, attribute_name);
@@ -583,6 +584,14 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
     return rc;
+  }
+
+  LOG_INFO("index attribute num is %d",create_index->attribute_num);
+  new_index_meta.unique=create_index->unique_flag;
+  new_index_meta.attribute_num=0;
+  for(int i=0;i<create_index->attribute_num;i++){
+    new_index_meta.attribute_name_list[i]=create_index->attribute_names[i];
+    new_index_meta.attribute_num+=1;
   }
 
   // 遍历当前的所有数据，插入这个索引
@@ -606,6 +615,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   std::string tmp_file = table_meta_file(base_dir_.c_str(), name()) + ".tmp";
   std::fstream fs;
   fs.open(tmp_file, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+  LOG_INFO("open file");
   if (!fs.is_open()) {
     LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
     return RC::IOERR;  // 创建索引中途出错，要做还原操作
@@ -615,6 +625,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     return RC::IOERR;
   }
   fs.close();
+  LOG_INFO("close file");
 
   // 覆盖原始元数据文件
   std::string meta_file = table_meta_file(base_dir_.c_str(), name());
@@ -884,6 +895,11 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)
     right_len = right_key != nullptr ? strlen(right_key) : 0;
   }
   return index->create_scanner(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive);
+}
+
+std::vector<Index *> Table::find_all_index() {
+
+  return indexes_;
 }
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter)

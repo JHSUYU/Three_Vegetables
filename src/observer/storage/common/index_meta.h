@@ -40,6 +40,10 @@ public:
 public:
   void to_json(Json::Value &json_value) const;
   static RC from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index);
+  int unique;
+  size_t attribute_num;
+  const char* attribute_name_list[20];
+
 
 protected:
   std::string name_;   // index's name

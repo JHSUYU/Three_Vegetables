@@ -122,12 +122,19 @@ typedef struct {
   char *index_name;      // Index name
   char *relation_name;   // Relation name
   char *attribute_name;  // Attribute name
+  char *attribute_names[MAX_NUM];
+  size_t attribute_num;
+  int unique_flag;
 } CreateIndex;
 
 // struct of  drop_index
 typedef struct {
   const char *index_name;  // Index name
 } DropIndex;
+
+typedef struct{
+  const char *table_name;
+} ShowIndex;
 
 typedef struct {
   const char *relation_name;
@@ -138,6 +145,12 @@ typedef struct {
   const char *file_name;
 } LoadData;
 
+typedef struct{
+  char *index_name;      // Index name
+  char *relation_name;   // Relation name
+  char *attribute_name;  // Attribute name
+}CreateUniqueIndex;
+
 union Queries {
   Selects selection;
   Inserts insertion;
@@ -146,9 +159,11 @@ union Queries {
   CreateTable create_table;
   DropTable drop_table;
   CreateIndex create_index;
+  CreateUniqueIndex create_unique_index;
   DropIndex drop_index;
   DescTable desc_table;
   LoadData load_data;
+  ShowIndex show_index;
   char *errors;
 };
 
@@ -172,7 +187,8 @@ enum SqlCommandFlag {
   SCF_ROLLBACK,
   SCF_LOAD_DATA,
   SCF_HELP,
-  SCF_EXIT
+  SCF_EXIT,
+  SCF_SHOW_INDEX,
 };
 // struct of flag and sql_struct
 typedef struct Query {
@@ -226,6 +242,11 @@ void drop_table_destroy(DropTable *drop_table);
 void create_index_init(
     CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name);
 void create_index_destroy(CreateIndex *create_index);
+
+void show_index_init(ShowIndex *show_index,const char* table_name);
+void create_index_set_unique(CreateIndex *create_index);
+void create_index_unset_unique(CreateIndex *create_index);
+void create_index_append(CreateIndex *create_index,const char *attr_name);
 
 void drop_index_init(DropIndex *drop_index, const char *index_name);
 void drop_index_destroy(DropIndex *drop_index);

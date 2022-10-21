@@ -172,6 +172,10 @@ void ExecuteStage::handle_request(common::StageEvent *event)
 
     case SCF_DROP_TABLE:
     case SCF_DROP_INDEX:
+    case SCF_SHOW_INDEX:{
+      LOG_TRACE("enter case switch show index\n");
+      do_show_index(sql_event);
+    } break;
     case SCF_LOAD_DATA: {
       default_storage_stage_->handle_event(event);
     } break;
@@ -482,15 +486,43 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
   const CreateIndex &create_index = sql_event->query()->sstr.create_index;
+  LOG_INFO("num is %d",create_index.attribute_num);
   Table *table = db->find_table(create_index.relation_name);
   if (nullptr == table) {
     session_event->set_response("FAILURE\n");
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name);
+  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, &create_index);
   sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
   return rc;
+}
+
+RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
+  LOG_TRACE("enter do show index\n");
+  SessionEvent *session_event = sql_event->session_event();
+  Db *db = session_event->session()->get_current_db();
+  const ShowIndex &show_index=sql_event->query()->sstr.show_index;
+  Table* table=db->find_table(show_index.table_name);
+  const TableMeta tableMeta=table->table_meta();
+  std::vector<Index *> all_indexes;
+  all_indexes=table->find_all_index();
+  const char* response="TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME";
+
+  std::stringstream ss;
+  int j;
+  int i;
+  for(j=0;j<tableMeta.index_num();j++){
+    const IndexMeta* cur_index=tableMeta.index(j);
+    for(i=0;i<cur_index->attribute_num;i++){
+      ss<<show_index.table_name<<"|"<<1-cur_index->unique<<"|"<<cur_index->name()<<"|"<<i+1<<"|"<<cur_index->attribute_name_list[i]<<std::endl;
+    }
+  }
+
+  session_event->set_response(ss.str().c_str());
+  LOG_TRACE("exit do show index\n");
+  return RC::SUCCESS;
+    
 }
 
 RC ExecuteStage::do_show_tables(SQLStageEvent *sql_event)

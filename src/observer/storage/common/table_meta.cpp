@@ -201,11 +201,13 @@ int TableMeta::serialize(std::ostream &ss) const
   table_value[FIELD_FIELDS] = std::move(fields_value);
 
   Json::Value indexes_value;
+  LOG_TRACE("Enter IndexMeta serialize");
   for (const auto &index : indexes_) {
     Json::Value index_value;
     index.to_json(index_value);
     indexes_value.append(std::move(index_value));
   }
+  LOG_TRACE("Exit IndexMeta serialize");
   table_value[FIELD_INDEXES] = std::move(indexes_value);
 
   Json::StreamWriterBuilder builder;

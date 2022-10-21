@@ -102,6 +102,7 @@ ParserContext *get_context(yyscan_t scanner)
         LE
         GE
         NE
+		UNIQUE
 
 %union {
   struct _Attr *attr;
@@ -152,6 +153,8 @@ command:
 	| load_data
 	| help
 	| exit
+	|show_index
+	|create_unique_index
     ;
 
 exit:			
@@ -208,12 +211,37 @@ desc_table:
     ;
 
 create_index:		/*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
+    CREATE INDEX ID ON ID LBRACE ID index_list RBRACE SEMICOLON 
 		{
 			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			
 			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7);
+			create_index_append(&CONTEXT->ssql->sstr.create_index,$7);
+			create_index_unset_unique(&CONTEXT->ssql->sstr.create_index);
+			
+
 		}
     ;
+
+create_unique_index:
+	CREATE UNIQUE INDEX ID ON ID LBRACE ID index_list RBRACE SEMICOLON 
+		{
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, $4, $6, $8);
+			create_index_append(&CONTEXT->ssql->sstr.create_index,$8);
+			create_index_set_unique(&CONTEXT->ssql->sstr.create_index);
+		}
+    ;
+
+
+show_index:
+	SHOW INDEX FROM ID SEMICOLON
+		{
+			CONTEXT->ssql->flag=SCF_SHOW_INDEX;
+			show_index_init(&CONTEXT->ssql->sstr.show_index,$4);
+		}
+	;
+
 
 drop_index:			/*drop index 语句的语法解析树*/
     DROP INDEX ID  SEMICOLON 
@@ -222,6 +250,7 @@ drop_index:			/*drop index 语句的语法解析树*/
 			drop_index_init(&CONTEXT->ssql->sstr.drop_index, $3);
 		}
     ;
+
 create_table:		/*create table 语句的语法解析树*/
     CREATE TABLE ID LBRACE attr_def attr_def_list RBRACE SEMICOLON 
 		{
@@ -393,6 +422,13 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
   	;
+
+index_list:
+    /* empty */
+    | COMMA ID index_list {	
+				create_index_append(&CONTEXT->ssql->sstr.create_index,$2);
+		  }
+    ;	
 
 rel_list:
     /* empty */

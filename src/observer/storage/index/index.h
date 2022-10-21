@@ -51,6 +51,12 @@ public:
 
   virtual RC sync() = 0;
 
+public:
+  int unique;
+  size_t attribute_num;
+  FieldMeta field_meta_list[MAX_NUM];
+  char* attribute_name_list[MAX_NUM];
+
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
 

@@ -258,15 +258,31 @@ void create_index_init(
   create_index->attribute_name = strdup(attr_name);
 }
 
+void create_index_append(CreateIndex *create_index,const char *attr_name)
+{
+  create_index->attribute_names[create_index->attribute_num++]=strdup(attr_name);
+}
+
+void create_index_set_unique(CreateIndex *create_index){
+  create_index->unique_flag=1;
+}
+void create_index_unset_unique(CreateIndex *create_index){
+  create_index->unique_flag=0;
+}
+
 void create_index_destroy(CreateIndex *create_index)
 {
   free(create_index->index_name);
   free(create_index->relation_name);
   free(create_index->attribute_name);
-
   create_index->index_name = nullptr;
   create_index->relation_name = nullptr;
   create_index->attribute_name = nullptr;
+}
+
+void show_index_init(ShowIndex *show_index,const char* table_name)
+{
+  show_index->table_name=strdup(table_name);
 }
 
 void drop_index_init(DropIndex *drop_index, const char *index_name)
