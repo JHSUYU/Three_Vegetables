@@ -488,10 +488,6 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
   const CreateIndex &create_index = sql_event->query()->sstr.create_index;
   LOG_INFO("num is %d",create_index.attribute_num);
   Table *table = db->find_table(create_index.relation_name);
-  if (nullptr == table) {
-    session_event->set_response("FAILURE\n");
-    return RC::SCHEMA_TABLE_NOT_EXIST;
-  }
 
   RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, &create_index);
   sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
@@ -505,6 +501,10 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
 
   const ShowIndex &show_index=sql_event->query()->sstr.show_index;
   Table* table=db->find_table(show_index.table_name);
+  if(table==nullptr){
+    sql_event->session_event()->set_response("FAILURE\n");
+    return RC::SUCCESS;
+  }
   const TableMeta tableMeta=table->table_meta();
   std::vector<Index *> all_indexes;
   all_indexes=table->find_all_index();
@@ -513,10 +513,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   std::stringstream ss;
   int j;
   int i;
-  if(table==nullptr){
-    sql_event->session_event()->set_response("FAILURE\n");
-    return RC::SUCCESS;
-  }
+  
   ss<<response<<std::endl;
   for(j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
