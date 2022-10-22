@@ -1,3 +1,11 @@
+/*
+ * @Author: 181830014 181830014@smail.nju.edu.cn
+ * @Date: 2022-10-21 17:52:23
+ * @LastEditors: 181830014 181830014@smail.nju.edu.cn
+ * @LastEditTime: 2022-10-22 19:34:52
+ * @FilePath: /source/ocean/src/observer/sql/stmt/insert_stmt.cpp
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 /* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
@@ -42,7 +50,8 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   const int value_num = inserts.value_num;
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
+  // czy add : field_num % value_num == 0
+  if (value_num % field_num != 0) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
   }
@@ -50,7 +59,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   // check fields type
   const int sys_field_num = table_meta.sys_field_num();
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+    const FieldMeta *field_meta = table_meta.field(i % field_num + sys_field_num);
     const AttrType field_type = field_meta->type();
     const AttrType value_type = values[i].type;
     if (field_type == DATES && value_type == CHARS) {

@@ -41,6 +41,8 @@ QUOTE            [\'\"]
 ";"                                                  RETURN_TOKEN(SEMICOLON);
 {DOT}                                                RETURN_TOKEN(DOT);
 "*"                                                  RETURN_TOKEN(STAR);
+[Nn][Oo][Tt]{WHITE_SAPCE}[Ll][Ii][Kk][Ee]            RETURN_TOKEN(NLK);
+[Ll][Ii][Kk][Ee]                                     RETURN_TOKEN(LK);
 [Ee][Xx][Ii][Tt]                                     RETURN_TOKEN(EXIT);
 [Hh][Ee][Ll][Pp]                                     RETURN_TOKEN(HELP);
 [Dd][Ee][Ss][Cc]                                     RETURN_TOKEN(DESC);
@@ -84,8 +86,7 @@ QUOTE            [\'\"]
 "<"                                                  RETURN_TOKEN(LT);
 ">="                                                 RETURN_TOKEN(GE);
 ">"                                                  RETURN_TOKEN(GT);
-{QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
-
+{QUOTE}[\40\42\47A-Za-z0-9_/\.\-\%]*?{QUOTE}         yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 .                                                    printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
 %%
 

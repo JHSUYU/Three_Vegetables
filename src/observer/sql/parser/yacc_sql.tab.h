@@ -39,7 +39,7 @@
 # define YY_YY_Y_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
-# define YYDEBUG 1
+# define YYDEBUG 0
 #endif
 #if YYDEBUG
 extern int yydebug;
@@ -96,14 +96,16 @@ extern int yydebug;
     LE = 297,                      /* LE  */
     GE = 298,                      /* GE  */
     NE = 299,                      /* NE  */
-    UNIQUE = 300,                  /* UNIQUE  */
-    NUMBER = 301,                  /* NUMBER  */
-    FLOAT = 302,                   /* FLOAT  */
-    ID = 303,                      /* ID  */
-    PATH = 304,                    /* PATH  */
-    SSS = 305,                     /* SSS  */
-    STAR = 306,                    /* STAR  */
-    STRING_V = 307                 /* STRING_V  */
+    LK = 300,                      /* LK  */
+    NLK = 301,                     /* NLK  */
+    UNIQUE = 302,                  /* UNIQUE  */
+    NUMBER = 303,                  /* NUMBER  */
+    FLOAT = 304,                   /* FLOAT  */
+    ID = 305,                      /* ID  */
+    PATH = 306,                    /* PATH  */
+    SSS = 307,                     /* SSS  */
+    STAR = 308,                    /* STAR  */
+    STRING_V = 309                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -153,20 +155,22 @@ extern int yydebug;
 #define LE 297
 #define GE 298
 #define NE 299
-#define UNIQUE 300
-#define NUMBER 301
-#define FLOAT 302
-#define ID 303
-#define PATH 304
-#define SSS 305
-#define STAR 306
-#define STRING_V 307
+#define LK 300
+#define NLK 301
+#define UNIQUE 302
+#define NUMBER 303
+#define FLOAT 304
+#define ID 305
+#define PATH 306
+#define SSS 307
+#define STAR 308
+#define STRING_V 309
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 108 "yacc_sql.y"
+#line 110 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -176,7 +180,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 180 "y.tab.h"
+#line 184 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

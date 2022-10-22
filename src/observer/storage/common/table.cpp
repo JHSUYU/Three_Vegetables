@@ -355,18 +355,61 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     return RC::INVALID_ARGUMENT;
   }
 
-  char *record_data;
-  RC rc = make_record(value_num, values, record_data);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
-    return rc;
+  const int normal_field_start_index = table_meta_.sys_field_num();
+  const int field_num = table_meta_.field_num() - normal_field_start_index;
+  const int record_length = value_num / field_num;
+  // std::cout << "record_length = " << record_length << std::endl;
+  Record record_list[record_length];
+  for (int i = 0; i < value_num; i += field_num) {
+    char *record_data;
+    int record_index = i / field_num;
+
+    // temp test code start
+    // if (i + field_num == value_num) {
+    //   LOG_ERROR("ROLLBACK TEST STARTS...");
+    //   for (int j = 0; j < record_index; j++) {
+    //     RC delete_rc = delete_record(trx, &record_list[j]);
+    //     if (delete_rc != RC::SUCCESS) {
+    //       LOG_ERROR("Failed to roll back multiple insert operations");
+    //       return delete_rc;
+    //     }
+    //   }
+    //   break;
+    // }
+    // temp test code end
+
+    RC rc = make_record(field_num, &values[i], record_data);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+      for (int j = 0; j < record_index; j++) {
+        RC delete_rc = delete_record(trx, &record_list[j]);
+        if (delete_rc != RC::SUCCESS) {
+          LOG_ERROR("Failed to roll back multiple insert operations");
+          return delete_rc;
+        }
+      }
+      return rc;
+    }
+
+    Record record;
+    record.set_data(record_data);
+    rc = insert_record(trx, &record);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
+      for (int j = 0; j < record_index; j++) {
+        RC delete_rc = delete_record(trx, &record_list[j]);
+        if (delete_rc != RC::SUCCESS) {
+          LOG_ERROR("Failed to roll back multiple insert operations");
+          return delete_rc;
+        }
+      }
+      return rc;
+    }
+    record_list[record_index] = record;
+    delete[] record_data;
   }
 
-  Record record;
-  record.set_data(record_data);
-  rc = insert_record(trx, &record);
-  delete[] record_data;
-  return rc;
+  return RC::SUCCESS;
 }
 
 const char *Table::name() const
@@ -395,8 +438,9 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   }
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  const int field_num = table_meta_.field_num() - normal_field_start_index;
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
     // hsy add
     // date type transformation and typecast in the future
@@ -428,7 +472,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   char *record = new char[record_size];
 
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
     size_t copy_len = field->len();
     if (field->type() == CHARS) {
