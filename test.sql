@@ -8,6 +8,7 @@ select * from aa where name = '__y';
 select * from aa where name like 'czy' and not like 'hsy';
 
 create table hhh (id int, age int);
+insert into aa values(11, 'cxt'), (22, 'cxk'), (33, 'hhh');
 insert into hhh values(1111, 1111), (2222, 2222), (3333, 3333);
 -- bison -vdy yacc_sql.y
 -- flex lex_sql.l
