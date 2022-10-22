@@ -649,13 +649,27 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
 
 RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, const CreateIndex* create_index)
 {
+  std::string attribute_names_str=std::string(attribute_name);
+  for(int i=1;i<create_index->attribute_num;i++){
+    attribute_names_str=attribute_names_str+"_"+create_index->attribute_names[create_index->attribute_num-1-i];
+  }
+  const char* attribute_multi_name=attribute_names_str.c_str();
+  
   if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
-  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_field((attribute_name))) {
+  const FieldMeta *field_meta_multi;
+  for(int i=0;i<create_index->attribute_num;i++){
+    field_meta_multi=table_meta_.field(create_index->attribute_names[i]);
+    if(!field_meta_multi){
+      LOG_INFO("Zhenyu multi Invalid input arguments, there is no field of %s in table:%s.", create_index->attribute_names[i], name());
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+  }
+  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_multi_field(attribute_multi_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index %s exist or attribute %s exist index",
-             name(), index_name, attribute_name);
+             name(), index_name, attribute_multi_name);
     return RC::SCHEMA_INDEX_EXIST;
   }
 
@@ -676,8 +690,11 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
+  LOG_INFO("index attribute num is %d",create_index->attribute_num);
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
+  LOG_INFO("index attribute num is %d",create_index->attribute_num);
   rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  LOG_INFO("index attribute num is %d",create_index->attribute_num);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));

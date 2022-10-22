@@ -34,7 +34,7 @@ public:
 public:
   const char *name() const;
   const char *field() const;
-
+  const char *multiField() const;
   void desc(std::ostream &os) const;
 
 public:
