@@ -172,6 +172,17 @@ const IndexMeta *TableMeta::find_index_by_field(const char *field) const
   return nullptr;
 }
 
+const IndexMeta *TableMeta::find_index_by_multi_field(const char *field) const
+{
+  LOG_TRACE("Enter\n");
+  for (const IndexMeta &index : indexes_) {
+    if (0 == strcmp(index.multiField(), field)) {
+      return &index;
+    }
+  }
+  return nullptr;
+}
+
 const IndexMeta *TableMeta::index(int i) const
 {
   return &indexes_[i];

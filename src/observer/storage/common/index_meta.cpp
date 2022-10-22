@@ -91,9 +91,21 @@ const char *IndexMeta::name() const
 
 const char *IndexMeta::field() const
 {
+  
   return field_.c_str();
 }
 
+const char *IndexMeta::multiField() const{
+  if(attribute_num>1){
+    std::string attribute_names_str=std::string(field_.c_str());
+    for(int i=1;i<attribute_num;i++){
+    attribute_names_str=attribute_names_str+"_"+attribute_name_list[attribute_num-1-i];
+    }
+    const char* attribute_multi_name=attribute_names_str.c_str();
+    return attribute_multi_name;
+  }
+  return field_.c_str();
+}
 void IndexMeta::desc(std::ostream &os) const
 {
   os << "index name=" << name_ << ", field=" << field_;

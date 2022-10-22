@@ -601,7 +601,6 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
     session_event->set_response("FAILURE\n");
     return RC::SUCCESS;
   }
-
   RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name, &create_index);
   sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
   return rc;
@@ -632,8 +631,8 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
   ss<<response<<std::endl;
   for(j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
-    for(i=0;i<cur_index->attribute_num;i++){
-      ss<<show_index.table_name<<"|"<<1-cur_index->unique<<"|"<<cur_index->name()<<"|"<<i+1<<"|"<<cur_index->attribute_name_list[i]<<std::endl;
+    for(i=cur_index->attribute_num-1;i>=0;i--){
+      ss<<show_index.table_name<<"|"<<1-cur_index->unique<<"|"<<cur_index->name()<<"|"<<cur_index->attribute_num-i<<"|"<<cur_index->attribute_name_list[i]<<std::endl;
     }
   }
 
