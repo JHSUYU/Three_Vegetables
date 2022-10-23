@@ -76,7 +76,8 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
       field_type == FLOATS && value_type == INTS ||
       field_type == CHARS && value_type == INTS ||
       field_type == INTS && value_type == CHARS ||
-      field_type == FLOATS && value_type == CHARS) {
+      field_type == FLOATS && value_type == CHARS ||
+      field_type == CHARS && value_type == FLOATS) {
         continue;
       }
     if (field_type != value_type) { // TODO try to convert the value type to field type

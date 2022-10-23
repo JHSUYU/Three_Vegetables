@@ -464,7 +464,8 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       field_type == FLOATS && value_type == INTS ||
       field_type == CHARS && value_type == INTS ||
       field_type == INTS && value_type == CHARS ||
-      field_type == FLOATS && value_type == CHARS) {
+      field_type == FLOATS && value_type == CHARS || 
+      field_type == CHARS && value_type == FLOATS) {
         continue;
       }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
@@ -518,7 +519,8 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       *((float*)value_for_copy.data) = data;
     } else if (field->type() == INTS && value.type == FLOATS) {
       float data = *(float*)value.data;
-      *((int*)value_for_copy.data) = data;
+      int num = (int)(data + 0.5);
+      *((int*)value_for_copy.data) = num;
     } else if (field->type() == FLOATS && value.type == CHARS) {
       float data = atof((char*)value.data);
       // TODO invalid case
@@ -528,7 +530,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       *((int*)value_for_copy.data) = data;
     } else if (field->type() == CHARS && value.type == INTS) {
       std::string str = std::to_string(*((int*)value.data));
-      value_for_copy.data = (void*)(str.c_str());
+      *(char*)value_for_copy.data = *str.c_str();
       copy_len = str.size() + 1;
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
