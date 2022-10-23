@@ -442,6 +442,8 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
+    const AttrType field_type = field->type();
+    const AttrType value_type = value.type;
     // hsy add
     // date type transformation and typecast in the future
     LOG_DEBUG("field_type = %d, value_type = %d", field->type(), value.type);
@@ -458,6 +460,13 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       continue;
     } 
     if (field->type() != value.type) {
+      if (field_type == INTS && value_type == FLOATS ||
+      field_type == FLOATS && value_type == INTS ||
+      field_type == CHARS && value_type == INTS ||
+      field_type == INTS && value_type == CHARS ||
+      field_type == FLOATS && value_type == CHARS) {
+        continue;
+      }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
           table_meta_.name(),
           field->name(),
@@ -474,8 +483,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
+    // hsy add
+    Value value_for_copy = value;
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
+    if (field->type() == CHARS && value.type == CHARS) {
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
@@ -502,9 +513,26 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       LOG_DEBUG("date = %d", data);
       memcpy(record + field->offset(), &data, sizeof(int));
       continue;
+    } else if (field->type() == FLOATS && value.type == INTS) {
+      int data = *(int*)value.data;
+      *((float*)value_for_copy.data) = data;
+    } else if (field->type() == INTS && value.type == FLOATS) {
+      float data = *(float*)value.data;
+      *((int*)value_for_copy.data) = data;
+    } else if (field->type() == FLOATS && value.type == CHARS) {
+      float data = atof((char*)value.data);
+      // TODO invalid case
+      *((float*)value_for_copy.data) = data;
+    } else if (field->type() == INTS && value.type == CHARS) {
+      int data = atoi((char*)value.data);
+      *((int*)value_for_copy.data) = data;
+    } else if (field->type() == CHARS && value.type == INTS) {
+      std::string str = std::to_string(*((int*)value.data));
+      value_for_copy.data = (void*)(str.c_str());
+      copy_len = str.size() + 1;
     }
-    memcpy(record + field->offset(), value.data, copy_len);
-  }
+    memcpy(record + field->offset(), value_for_copy.data, copy_len);
+  } 
 
   record_out = record;
   return RC::SUCCESS;

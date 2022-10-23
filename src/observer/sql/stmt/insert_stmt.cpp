@@ -72,7 +72,13 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       continue;
-    }
+    } else if (field_type == INTS && value_type == FLOATS ||
+      field_type == FLOATS && value_type == INTS ||
+      field_type == CHARS && value_type == INTS ||
+      field_type == INTS && value_type == CHARS ||
+      field_type == FLOATS && value_type == CHARS) {
+        continue;
+      }
     if (field_type != value_type) { // TODO try to convert the value type to field type
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
                table_name, field_meta->name(), field_type, value_type);
