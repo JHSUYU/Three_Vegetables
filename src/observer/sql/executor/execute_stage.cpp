@@ -129,6 +129,7 @@ void ExecuteStage::callback_event(StageEvent *event, CallbackContext *context)
 
 void ExecuteStage::handle_request(common::StageEvent *event)
 {
+  LOG_TRACE("Enter\n");
   SQLStageEvent *sql_event = static_cast<SQLStageEvent *>(event);
   SessionEvent *session_event = sql_event->session_event();
   Stmt *stmt = sql_event->stmt();
@@ -279,6 +280,7 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
 
 IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 {
+  LOG_TRACE("Enter\n");
   const std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
   if (filter_units.empty() ) {
     return nullptr;
@@ -299,6 +301,8 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
     if (left->type() == ExprType::FIELD && right->type() == ExprType::VALUE) {
     } else if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
       std::swap(left, right);
+    } else if (left->type() == ExprType::VALUE && right->type() == ExprType::VALUE) { // hsy add
+      return nullptr;
     }
     FieldExpr &left_field_expr = *(FieldExpr *)left;
     const Field &field = left_field_expr.field();
@@ -400,6 +404,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   return oper;
 }
 static RC check_select_meta(SelectStmt *select_stmt) {
+  LOG_TRACE("Enter\n");
   std::string table_name = select_stmt->tables()[0]->name();
   BufferPoolManager &bpm = BufferPoolManager::instance();
   DiskBufferPool *buffer_pool;
@@ -411,6 +416,7 @@ static RC check_select_meta(SelectStmt *select_stmt) {
     return rc;
   }
   close(fd);
+  // TODO: support multi tables
   Table *table = select_stmt->tables()[0];
   TableMeta table_meta = table->table_meta();
   std::unordered_set<std::string> field_names;
@@ -424,11 +430,13 @@ static RC check_select_meta(SelectStmt *select_stmt) {
       rc = RC::INVALID_ARGUMENT;
     }
   }
+  LOG_TRACE("Exit\n");
   return rc;
 }
 
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
+  LOG_TRACE("Enter\n");
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
