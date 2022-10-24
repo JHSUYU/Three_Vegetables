@@ -227,8 +227,11 @@ RC Table::destroy(const char *base_dir)
       LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
       return RC::GENERIC_ERROR;
     }
+    BufferPoolManager::instance().close_file(index_file.c_str());
   }
-
+  BufferPoolManager::instance().close_file(data_file_path.c_str());
+  BufferPoolManager::instance().close_file(meta_file_path.c_str());
+  
   return rc;
 }
 RC Table::commit_insert(Trx *trx, const RID &rid)
@@ -487,6 +490,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     // hsy add
     Value value_for_copy = value;
     size_t copy_len = field->len();
+    LOG_DEBUG("copy_len = %d", copy_len);
     if (field->type() == CHARS && value.type == CHARS) {
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
@@ -512,22 +516,27 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       if (!b) return RC::INVALID_ARGUMENT;
       int data = y * 10000 + m * 100 + d;
       LOG_DEBUG("date = %d", data);
-      memcpy(record + field->offset(), &data, sizeof(int));
+      *(int*)value_for_copy.data = data; 
+      memcpy(record + field->offset(), value_for_copy.data, sizeof(int));
       continue;
     } else if (field->type() == FLOATS && value.type == INTS) {
       int data = *(int*)value.data;
       *((float*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
     } else if (field->type() == INTS && value.type == FLOATS) {
       float data = *(float*)value.data;
       int num = (int)(data + 0.5);
       *((int*)value_for_copy.data) = num;
+      copy_len = sizeof(float);
     } else if (field->type() == FLOATS && value.type == CHARS) {
       float data = atof((char*)value.data);
       // TODO invalid case
       *((float*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
     } else if (field->type() == INTS && value.type == CHARS) {
       int data = atoi((char*)value.data);
       *((int*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
     } else if (field->type() == CHARS && value.type == INTS) {
       std::string str = std::to_string(*((int*)value.data));
       value_for_copy.data = (void*)str.c_str();
@@ -551,6 +560,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       (value_for_copy.data) = (void*)data.c_str();
       LOG_DEBUG("data = %s", (char*)value_for_copy.data);
       LOG_TRACE("Exit\n");
+      copy_len = data.size() + 1;
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
   } 
