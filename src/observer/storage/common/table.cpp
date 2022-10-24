@@ -535,6 +535,19 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     } else if (field->type() == CHARS && value.type == FLOATS) {
       LOG_TRACE("Enter\n");
       std::string data = std::to_string(*(float*)value.data);
+      for(int i = data.size() - 1; i >= 0; i--) {
+        if ('\0' == data[i]) {
+          continue;
+        } else if ('0' == data[i]){
+			    data[i] = '\0';
+        } else if ('.' == data[i]) {
+          data[i] = '\0';
+          break;
+        } else {
+          break;
+        }
+      }
+      LOG_DEBUG("data = %s", (char*)data.c_str());
       (value_for_copy.data) = (void*)data.c_str();
       LOG_DEBUG("data = %s", (char*)value_for_copy.data);
       LOG_TRACE("Exit\n");
