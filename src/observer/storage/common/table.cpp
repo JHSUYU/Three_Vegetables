@@ -530,8 +530,14 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       *((int*)value_for_copy.data) = data;
     } else if (field->type() == CHARS && value.type == INTS) {
       std::string str = std::to_string(*((int*)value.data));
-      *(char*)value_for_copy.data = *str.c_str();
+      value_for_copy.data = (void*)str.c_str();
       copy_len = str.size() + 1;
+    } else if (field->type() == CHARS && value.type == FLOATS) {
+      LOG_TRACE("Enter\n");
+      std::string data = std::to_string(*(float*)value.data);
+      (value_for_copy.data) = (void*)data.c_str();
+      LOG_DEBUG("data = %s", (char*)value_for_copy.data);
+      LOG_TRACE("Exit\n");
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
   } 
