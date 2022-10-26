@@ -101,7 +101,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         LOG_INFO("field_name = %s\n", field_name);
         if (0 == strcmp(field_name, "MAX") || 0 == strcmp(field_name, "MIN") ||
             0 == strcmp(field_name, "SUM") || 0 == strcmp(field_name, "AVG") ||  
-            0 == strcmp(field_name, "COUNT") || 0 == strcmp(field_name, "COUNTALL")) {
+            0 == strncmp(field_name, "COUNT", 5)) {
           LOG_INFO("This is an aggregation statement!!!!!!!!");
           is_aggregation = true;
           aggr_funcs.push_back((char *)field_name);
@@ -138,7 +138,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
       LOG_INFO("field_name = %s\n", field_name);
       if (0 == strcmp(field_name, "MAX") || 0 == strcmp(field_name, "MIN") ||
           0 == strcmp(field_name, "SUM") || 0 == strcmp(field_name, "AVG") ||  
-          0 == strcmp(field_name, "COUNT") || 0 == strcmp(field_name, "COUNTALL")) { 
+          0 == strncmp(field_name, "COUNT", 5)) { 
         LOG_INFO("This is an aggregation statement!!!!!!!!");
         is_aggregation = true;
         aggr_funcs.push_back((char *)field_name);

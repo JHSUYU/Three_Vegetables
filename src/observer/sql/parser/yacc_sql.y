@@ -112,7 +112,8 @@ ParserContext *get_context(yyscan_t scanner)
 		SUM
 		AVG
 		COUNT
-		COUNTALL
+		COUNTALLXING
+		COUNTALL1
 
 %union {
   struct _Attr *attr;
@@ -462,9 +463,14 @@ aggr:
 		relation_attr_init(&attr, NULL, $3);
 		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
-	| COUNTALL {
+	| COUNTALLXING {
 		RelAttr attr;
-		relation_attr_init(&attr, NULL, "COUNTALL");
+		relation_attr_init(&attr, NULL, "COUNT(*)");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNTALL1 {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNT(1)");
 		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
 	;

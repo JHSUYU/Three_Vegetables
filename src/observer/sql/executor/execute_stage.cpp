@@ -267,8 +267,8 @@ void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std:
     if (i != 0) {
       os << " | ";
     }
-    if (0 == strcmp(aggr_funcs[i], "COUNTALL")) {
-      os << "COUNT";
+    if (0 == strncmp(aggr_funcs[i], "COUNT(", 6)) {
+      os << aggr_funcs[i];
       continue;
     }
     oper.tuple_cell_spec_at(cell_index++, cell_spec);
@@ -484,11 +484,11 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   const int cell_num = project_oper.tuple_cell_num();
-  // 新建vector <> aggr_funcs, 存储除了COUNTALL以外的聚合函数
+  // 新建vector <> aggr_funcs, 存储除了COUNT(1)/COUNT(*)以外的聚合函数
   std::vector <char *> aggr_funcs;
   for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
     char *aggr_func = select_stmt->aggr_funcs()[i];
-    if (0 != strcmp(aggr_func, "COUNTALL"))
+    if (0 != strncmp(aggr_func, "COUNT(", 6))
       aggr_funcs.push_back(aggr_func);
   }
   if (aggr_funcs.size() != cell_num) {
@@ -519,7 +519,7 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
     int cell_index = 0;
     for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
       char *aggr_func = select_stmt->aggr_funcs()[i];
-      if (0 == strcmp(aggr_func, "COUNTALL")) {
+      if (0 == strncmp(aggr_func, "COUNT(", 6)) {
         if (first_tuple) {
           TupleCell *tmp = new TupleCell();
           aggr_result.push_back(*tmp);
@@ -601,7 +601,7 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
   for (int i = 0; i < aggr_result.size(); i++) {
     TupleCell cell = aggr_result[i];
     char *aggr_func = select_stmt->aggr_funcs()[i];
-    if (0 == strcmp(aggr_func, "COUNT") || 0 == strcmp(aggr_func, "COUNTALL")) {
+    if (0 == strncmp(aggr_func, "COUNT", 5)) {
       int *count = new int;
       *count = tuple_num;
       LOG_INFO("COUNT = %d", *count);

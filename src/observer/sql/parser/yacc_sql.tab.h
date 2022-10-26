@@ -105,14 +105,15 @@ extern int yydebug;
     SUM = 306,                     /* SUM  */
     AVG = 307,                     /* AVG  */
     COUNT = 308,                   /* COUNT  */
-    COUNTALL = 309,                /* COUNTALL  */
-    NUMBER = 310,                  /* NUMBER  */
-    FLOAT = 311,                   /* FLOAT  */
-    ID = 312,                      /* ID  */
-    PATH = 313,                    /* PATH  */
-    SSS = 314,                     /* SSS  */
-    STAR = 315,                    /* STAR  */
-    STRING_V = 316                 /* STRING_V  */
+    COUNTALLXING = 309,            /* COUNTALLXING  */
+    COUNTALL1 = 310,               /* COUNTALL1  */
+    NUMBER = 311,                  /* NUMBER  */
+    FLOAT = 312,                   /* FLOAT  */
+    ID = 313,                      /* ID  */
+    PATH = 314,                    /* PATH  */
+    SSS = 315,                     /* SSS  */
+    STAR = 316,                    /* STAR  */
+    STRING_V = 317                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -171,20 +172,21 @@ extern int yydebug;
 #define SUM 306
 #define AVG 307
 #define COUNT 308
-#define COUNTALL 309
-#define NUMBER 310
-#define FLOAT 311
-#define ID 312
-#define PATH 313
-#define SSS 314
-#define STAR 315
-#define STRING_V 316
+#define COUNTALLXING 309
+#define COUNTALL1 310
+#define NUMBER 311
+#define FLOAT 312
+#define ID 313
+#define PATH 314
+#define SSS 315
+#define STAR 316
+#define STRING_V 317
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 117 "yacc_sql.y"
+#line 118 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -194,7 +196,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 198 "y.tab.h"
+#line 200 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
