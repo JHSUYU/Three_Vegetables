@@ -149,7 +149,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   } else {
     LOG_TRACE("Enter\n");
     Condition condition_cpy = condition;
-    if (((FieldExpr*)left)->field().attr_type() == DATES) {
+    if (condition.left_is_attr && ((FieldExpr*)left)->field().attr_type() == DATES) {
         std::vector<std::string> date;
         common::split_string((char*)condition.right_value.data, "-", date);
       if (date.size() != 3) {

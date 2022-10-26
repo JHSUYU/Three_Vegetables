@@ -227,8 +227,11 @@ RC Table::destroy(const char *base_dir)
       LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
       return RC::GENERIC_ERROR;
     }
+    BufferPoolManager::instance().close_file(index_file.c_str());
   }
-
+  BufferPoolManager::instance().close_file(data_file_path.c_str());
+  BufferPoolManager::instance().close_file(meta_file_path.c_str());
+  
   return rc;
 }
 RC Table::commit_insert(Trx *trx, const RID &rid)
@@ -355,13 +358,8 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     return RC::INVALID_ARGUMENT;
   }
 
-  char *record_data;
+  char* record_data;
   RC rc = make_record(value_num, values, record_data);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
-    return rc;
-  }
-
   Record record;
   record.set_data(record_data);
   const TableMeta &tableMeta=table_meta(); 
@@ -409,9 +407,63 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     p->push_back(value_list_cur);
     LOG_TRACE("data set size is %d",cur_index->set_.size());
   }
-  rc = insert_record(trx, &record);
-  delete[] record_data;
-  return rc;
+
+  const int normal_field_start_index = table_meta_.sys_field_num();
+  const int field_num = table_meta_.field_num() - normal_field_start_index;
+  const int record_length = value_num / field_num;
+  // std::cout << "record_length = " << record_length << std::endl;
+  Record record_list[record_length];
+  for (int i = 0; i < value_num; i += field_num) {
+    char *record_data;
+    int record_index = i / field_num;
+
+    // temp test code start
+    // if (i + field_num == value_num) {
+    //   LOG_ERROR("ROLLBACK TEST STARTS...");
+    //   for (int j = 0; j < record_index; j++) {
+    //     RC delete_rc = delete_record(trx, &record_list[j]);
+    //     if (delete_rc != RC::SUCCESS) {
+    //       LOG_ERROR("Failed to roll back multiple insert operations");
+    //       return delete_rc;
+    //     }
+    //   }
+    //   break;
+    // }
+    // temp test code end
+
+    RC rc = make_record(field_num, &values[i], record_data);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+      for (int j = 0; j < record_index; j++) {
+        RC delete_rc = delete_record(trx, &record_list[j]);
+        if (delete_rc != RC::SUCCESS) {
+          LOG_ERROR("Failed to roll back multiple insert operations");
+          return delete_rc;
+        }
+      }
+      return rc;
+    }
+
+    Record record;
+    record.set_data(record_data);
+    
+    rc = insert_record(trx, &record);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
+      for (int j = 0; j < record_index; j++) {
+        RC delete_rc = delete_record(trx, &record_list[j]);
+        if (delete_rc != RC::SUCCESS) {
+          LOG_ERROR("Failed to roll back multiple insert operations");
+          return delete_rc;
+        }
+      }
+      return rc;
+    }
+    record_list[record_index] = record;
+    delete[] record_data;
+  }
+
+  return RC::SUCCESS;
 }
 
 const char *Table::name() const
@@ -440,9 +492,12 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   }
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  const int field_num = table_meta_.field_num() - normal_field_start_index;
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
+    const AttrType field_type = field->type();
+    const AttrType value_type = value.type;
     // hsy add
     // date type transformation and typecast in the future
     LOG_DEBUG("field_type = %d, value_type = %d", field->type(), value.type);
@@ -459,6 +514,14 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       continue;
     } 
     if (field->type() != value.type) {
+      if (field_type == INTS && value_type == FLOATS ||
+      field_type == FLOATS && value_type == INTS ||
+      field_type == CHARS && value_type == INTS ||
+      field_type == INTS && value_type == CHARS ||
+      field_type == FLOATS && value_type == CHARS || 
+      field_type == CHARS && value_type == FLOATS) {
+        continue;
+      }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
           table_meta_.name(),
           field->name(),
@@ -473,10 +536,13 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   char *record = new char[record_size];
 
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
+    // hsy add
+    Value value_for_copy = value;
     size_t copy_len = field->len();
-    if (field->type() == CHARS) {
+    LOG_DEBUG("copy_len = %d", copy_len);
+    if (field->type() == CHARS && value.type == CHARS) {
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
@@ -501,11 +567,54 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       if (!b) return RC::INVALID_ARGUMENT;
       int data = y * 10000 + m * 100 + d;
       LOG_DEBUG("date = %d", data);
-      memcpy(record + field->offset(), &data, sizeof(int));
+      *(int*)value_for_copy.data = data; 
+      memcpy(record + field->offset(), value_for_copy.data, sizeof(int));
       continue;
+    } else if (field->type() == FLOATS && value.type == INTS) {
+      int data = *(int*)value.data;
+      *((float*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
+    } else if (field->type() == INTS && value.type == FLOATS) {
+      float data = *(float*)value.data;
+      int num = (int)(data + 0.5);
+      *((int*)value_for_copy.data) = num;
+      copy_len = sizeof(float);
+    } else if (field->type() == FLOATS && value.type == CHARS) {
+      float data = atof((char*)value.data);
+      // TODO invalid case
+      *((float*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
+    } else if (field->type() == INTS && value.type == CHARS) {
+      int data = atoi((char*)value.data);
+      *((int*)value_for_copy.data) = data;
+      copy_len = sizeof(float);
+    } else if (field->type() == CHARS && value.type == INTS) {
+      std::string str = std::to_string(*((int*)value.data));
+      value_for_copy.data = (void*)str.c_str();
+      copy_len = str.size() + 1;
+    } else if (field->type() == CHARS && value.type == FLOATS) {
+      LOG_TRACE("Enter\n");
+      std::string data = std::to_string(*(float*)value.data);
+      for(int i = data.size() - 1; i >= 0; i--) {
+        if ('\0' == data[i]) {
+          continue;
+        } else if ('0' == data[i]){
+			    data[i] = '\0';
+        } else if ('.' == data[i]) {
+          data[i] = '\0';
+          break;
+        } else {
+          break;
+        }
+      }
+      LOG_DEBUG("data = %s", (char*)data.c_str());
+      (value_for_copy.data) = (void*)data.c_str();
+      LOG_DEBUG("data = %s", (char*)value_for_copy.data);
+      LOG_TRACE("Exit\n");
+      copy_len = data.size() + 1;
     }
-    memcpy(record + field->offset(), value.data, copy_len);
-  }
+    memcpy(record + field->offset(), value_for_copy.data, copy_len);
+  } 
 
   record_out = record;
   return RC::SUCCESS;

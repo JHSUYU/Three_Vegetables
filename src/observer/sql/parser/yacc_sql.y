@@ -103,6 +103,8 @@ ParserContext *get_context(yyscan_t scanner)
         LE
         GE
         NE
+		LK
+		NLK
 		UNIQUE
 
 %union {
@@ -310,7 +312,7 @@ ID_get:
 
 	
 insert:				/*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE SEMICOLON 
+    INSERT INTO ID VALUES brace_value_list multi_value_list SEMICOLON 
 		{
 			// CONTEXT->values[CONTEXT->value_length++] = *$6;
 
@@ -325,6 +327,13 @@ insert:				/*insert   语句的语法解析树*/
       //临时变量清零
       CONTEXT->value_length=0;
     }
+
+multi_value_list:
+	/* empty */
+	| COMMA brace_value_list multi_value_list {};
+
+brace_value_list:
+	LBRACE value value_list RBRACE {};
 
 value_list:
     /* empty */
@@ -341,7 +350,7 @@ value:
 		}
     |SSS {
 			$1 = substr($1,1,strlen($1)-2);
-  		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
+  			value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     ;
     
@@ -604,6 +613,8 @@ comOp:
     | LE { CONTEXT->comp = LESS_EQUAL; }
     | GE { CONTEXT->comp = GREAT_EQUAL; }
     | NE { CONTEXT->comp = NOT_EQUAL; }
+	| LK { CONTEXT->comp = LIKE; }
+	| NLK { CONTEXT->comp = NOT_LIKE; }
     ;
 
 load_data:

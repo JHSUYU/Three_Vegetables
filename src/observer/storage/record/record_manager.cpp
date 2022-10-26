@@ -171,6 +171,7 @@ RC RecordPageHandler::cleanup()
 
 RC RecordPageHandler::insert_record(const char *data, RID *rid)
 {
+  LOG_TRACE("Enter\n");
   if (page_header_->record_num == page_header_->record_capacity) {
     LOG_WARN("Page is full, page_num %d:%d.", frame_->page_num());
     return RC::RECORD_NOMEM;
@@ -192,8 +193,9 @@ RC RecordPageHandler::insert_record(const char *data, RID *rid)
     rid->page_num = get_page_num();
     rid->slot_num = index;
   }
-
-  // LOG_TRACE("Insert record. rid page_num=%d, slot num=%d", get_page_num(), index);
+ 
+  LOG_TRACE("Insert record. rid page_num=%d, slot num=%d", get_page_num(), index);
+  LOG_TRACE("Exit\n");
   return RC::SUCCESS;
 }
 
@@ -358,6 +360,7 @@ RC RecordFileHandler::init_free_pages()
 
 RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
 {
+  LOG_TRACE("Enter\n");
   RC ret = RC::SUCCESS;
   // 找到没有填满的页面
 
@@ -400,8 +403,9 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
 
     disk_buffer_pool_->unpin_page(frame);
     free_pages_.insert(current_page_num);
+     
   }
-
+  LOG_TRACE("Exit\n");
   // 找到空闲位置
   return record_page_handler.insert_record(data, rid);
 }

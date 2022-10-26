@@ -78,6 +78,7 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     bool filter_result = false;
     switch (comp) {
     case EQUAL_TO: {
+      std::cout << "comp = EQUAL_TO, compare = " << compare << std::endl;
       filter_result = (0 == compare); 
     } break;
     case LESS_EQUAL: {
@@ -94,6 +95,12 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     } break;
     case GREAT_THAN: {
       filter_result = (compare > 0);
+    } break;
+    case LIKE: {
+      filter_result = (compare == 1000 || compare == 0);
+    } break;
+    case NOT_LIKE: {
+      filter_result = (compare != 1000 && compare != 0);
     } break;
     default: {
       LOG_WARN("invalid compare type: %d", comp);

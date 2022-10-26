@@ -284,6 +284,7 @@ RC DiskBufferPool::get_this_page(PageNum page_num, Frame **frame)
 
 RC DiskBufferPool::allocate_page(Frame **frame)
 {
+  LOG_TRACE("Enter\n");
   RC rc = RC::SUCCESS;
 
   int byte = 0, bit = 0;
@@ -458,7 +459,8 @@ RC DiskBufferPool::flush_page(Frame &frame)
 {
   // The better way is use mmap the block into memory,
   // so it is easier to flush data to file.
-
+  LOG_TRACE("Enter\n");
+  LOG_DEBUG("file_desc_ = %d", file_desc_);
   Page &page = frame.page_;
   s64_t offset = ((s64_t)page.page_num) * sizeof(Page);
   if (lseek(file_desc_, offset, SEEK_SET) == offset - 1) {
@@ -472,7 +474,7 @@ RC DiskBufferPool::flush_page(Frame &frame)
   }
   frame.dirty_ = false;
   LOG_DEBUG("Flush block. file desc=%d, page num=%d", file_desc_, page.page_num);
-
+  LOG_TRACE("Exit\n");
   return RC::SUCCESS;
 }
 
@@ -506,6 +508,7 @@ RC DiskBufferPool::recover_page(PageNum page_num)
 
 RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
 {
+  LOG_TRACE("Enter\n");
   while (true) {
     Frame *frame = frame_manager_.alloc(file_desc_, page_num);
     if (frame != nullptr) {
@@ -529,6 +532,7 @@ RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
 
     frame_manager_.free(frame->file_desc(), frame->page_num(), frame);
   }
+  LOG_TRACE("Exit\n");
   return RC::INTERNAL;
 }
 
@@ -677,7 +681,9 @@ RC BufferPoolManager::close_file(const char *_file_name)
 
 RC BufferPoolManager::flush_page(Frame &frame)
 {
+  LOG_TRACE("Enter\n");
   int fd = frame.file_desc();
+  LOG_DEBUG("fd = %d", fd);
   auto iter = fd_buffer_pools_.find(fd);
   if (iter == fd_buffer_pools_.end()) {
     LOG_WARN("unknown buffer pool of fd %d", fd);
@@ -685,6 +691,7 @@ RC BufferPoolManager::flush_page(Frame &frame)
   }
 
   DiskBufferPool *bp = iter->second;
+  LOG_TRACE("Exit\n");
   return bp->flush_page(frame);
 }
 
