@@ -64,7 +64,9 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   }
   
   // collect query fields in `select` statement
+  bool is_aggregation = false;
   std::vector<Field> query_fields;
+  std::vector<char *> aggr_funcs;
   for (int i = select_sql.attr_num - 1; i >= 0; i--) {
     const RelAttr &relation_attr = select_sql.attributes[i];
 
@@ -73,7 +75,9 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         wildcard_fields(table, query_fields);
       }
 
-    } else if (!common::is_blank(relation_attr.relation_name)) { // TODO
+    } 
+
+    else if (!common::is_blank(relation_attr.relation_name)) { // TODO
       const char *table_name = relation_attr.relation_name;
       const char *field_name = relation_attr.attribute_name;
 
@@ -93,7 +97,26 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         }
 
         Table *table = iter->second;
-        if (0 == strcmp(field_name, "*")) {
+        // czy add 
+        LOG_INFO("field_name = %s\n", field_name);
+        if (0 == strcmp(field_name, "MAX") || 0 == strcmp(field_name, "MIN") ||
+            0 == strcmp(field_name, "SUM") || 0 == strcmp(field_name, "AVG") ||  
+            0 == strcmp(field_name, "COUNT") || 0 == strcmp(field_name, "COUNTALL")) {
+          LOG_INFO("This is an aggregation statement!!!!!!!!");
+          is_aggregation = true;
+          aggr_funcs.push_back((char *)field_name);
+          continue;
+        }
+        // else if ((0 == strcmp(field_name, "1") || 0 == strcmp(field_name, "*")) && i > 0
+        //           && 0 == strcmp(select_sql.attributes[i-1].attribute_name, "COUNT")) {
+        //   aggr_funcs.pop_back();
+        //   char *aggr_func = "COUNT(";
+        //   strcat(aggr_func, field_name);
+        //   strcat(aggr_func, ")");
+        //   aggr_funcs.push_back(aggr_func);
+        //   continue;
+        // }
+        else if (0 == strcmp(field_name, "*")) {
           wildcard_fields(table, query_fields);
         } else {
           const FieldMeta *field_meta = table->table_meta().field(field_name);
@@ -102,7 +125,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
             return RC::SCHEMA_FIELD_MISSING;
           }
 
-        query_fields.push_back(Field(table, field_meta));
+          query_fields.push_back(Field(table, field_meta));
         }
       }
     } else {
@@ -111,6 +134,16 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         return RC::SCHEMA_FIELD_MISSING;
       }
 
+      const char *field_name = relation_attr.attribute_name;
+      LOG_INFO("field_name = %s\n", field_name);
+      if (0 == strcmp(field_name, "MAX") || 0 == strcmp(field_name, "MIN") ||
+          0 == strcmp(field_name, "SUM") || 0 == strcmp(field_name, "AVG") ||  
+          0 == strcmp(field_name, "COUNT") || 0 == strcmp(field_name, "COUNTALL")) { 
+        LOG_INFO("This is an aggregation statement!!!!!!!!");
+        is_aggregation = true;
+        aggr_funcs.push_back((char *)field_name);
+        continue;
+      }
       Table *table = tables[0];
       const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name);
       if (nullptr == field_meta) {
@@ -142,7 +175,9 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
+  select_stmt->aggr_funcs_.swap(aggr_funcs);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->is_aggregation_ = is_aggregation;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

@@ -35,13 +35,19 @@ public:
   StmtType type() const override { return StmtType::SELECT; }
 public:
   static RC create(Db *db, const Selects &select_sql, Stmt *&stmt);
+  void set_is_aggregation(bool flag) { is_aggregation_ = flag; }
 
 public:
   const std::vector<Table *> &tables() const { return tables_; }
   const std::vector<Field> &query_fields() const { return query_fields_; }
+  const std::vector<char *> &aggr_funcs() const { return aggr_funcs_; }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
+  bool is_aggregation() { return is_aggregation_; }
 
 private:
+  // czy add: check whether this is an aggregation select
+  bool is_aggregation_ = false;
+  std::vector<char *> aggr_funcs_;  // 形如 aggr_func(column_name) 的聚合函数
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;

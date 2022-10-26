@@ -106,6 +106,13 @@ ParserContext *get_context(yyscan_t scanner)
 		LK
 		NLK
 		UNIQUE
+		AGGR_FUNC
+		MAX
+		MIN
+		SUM
+		AVG
+		COUNT
+		COUNTALL
 
 %union {
   struct _Attr *attr;
@@ -415,7 +422,53 @@ select_attr:
 			relation_attr_init(&attr, $1, $3);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
+	// czy add: aggregation funtion (max/min/count/sum/avg) 
+	| aggr attr_list {}
     ;
+
+aggr:
+	MAX LBRACE ID RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "MAX");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		relation_attr_init(&attr, NULL, $3);
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| MIN LBRACE ID RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "MIN");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		relation_attr_init(&attr, NULL, $3);
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| SUM LBRACE ID RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "SUM");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		relation_attr_init(&attr, NULL, $3);
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| AVG LBRACE ID RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "AVG");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		relation_attr_init(&attr, NULL, $3);
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT LBRACE ID RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNT");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		relation_attr_init(&attr, NULL, $3);
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNTALL {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNTALL");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	;
+
 attr_list:
     /* empty */
     | COMMA ID attr_list {
@@ -432,6 +485,7 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
+	| COMMA aggr attr_list {};
   	;
 
 index_list:
