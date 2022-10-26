@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_STORAGE_COMMON_INDEX_META_H__
 
 #include <string>
+#include <vector>
 #include "rc.h"
 
 class TableMeta;
@@ -43,6 +44,7 @@ public:
   int unique;
   size_t attribute_num;
   const char* attribute_name_list[20];
+  std::vector<int*> set_;
 
 
 protected:

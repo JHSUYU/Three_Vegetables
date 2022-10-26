@@ -364,6 +364,51 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
 
   Record record;
   record.set_data(record_data);
+  const TableMeta &tableMeta=table_meta(); 
+  LOG_TRACE("table index number is %d",tableMeta.index_num());
+  for(int j=0;j<tableMeta.index_num();j++){
+    const IndexMeta* cur_index=tableMeta.index(j);
+    std::vector<int*> data_set=cur_index->set_;
+    LOG_TRACE("data set size is %d",data_set.size());
+    int value_list[20];
+    for(int i=0;i<cur_index->attribute_num;i++){
+      const char* attribute_name=cur_index->attribute_name_list[i];
+      const FieldMeta *field_meta = tableMeta.field(attribute_name);
+      const char* begin=record.data()+field_meta->offset();
+      int value;
+      memcpy(&value,begin,sizeof(int)/sizeof(char));
+      value_list[i]=value;
+    }
+    for(int i=0;i<data_set.size();i++){
+      int* data=data_set[i];
+      int k;
+      for(k=0;k<cur_index->attribute_num;k++){
+          if(data[k]!=value_list[k]){
+            break;
+          }
+      }
+      if(k==cur_index->attribute_num){
+        return RC::BUFFERPOOL_INVALIDNAME;
+      }
+    }
+  }
+  for(int j=0;j<tableMeta.index_num();j++){
+    const IndexMeta* cur_index=tableMeta.index(j);
+    std::vector<int*> data_set=cur_index->set_;
+    int value_list_cur[20];
+    for(int i=0;i<cur_index->attribute_num;i++){
+      const char* attribute_name=cur_index->attribute_name_list[i];
+      const FieldMeta *field_meta = tableMeta.field(attribute_name);
+      const char* begin=record.data()+field_meta->offset();
+      int value;
+      memcpy(&value,begin,sizeof(int)/sizeof(char));
+      value_list_cur[i]=value;
+    }
+    data_set.push_back(value_list_cur);
+    std::vector<int*> * p=const_cast<std::vector<int*> *>(&cur_index->set_);
+    p->push_back(value_list_cur);
+    LOG_TRACE("data set size is %d",cur_index->set_.size());
+  }
   rc = insert_record(trx, &record);
   delete[] record_data;
   return rc;
@@ -627,6 +672,42 @@ RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter 
   return rc;
 }
 
+class UniqueIndexInserter {
+public:
+  explicit UniqueIndexInserter(Index *index,IndexMeta *index_meta,TableMeta* table_meta) : index_(index),index_meta_(index_meta),
+  table_meta_(table_meta)
+  {attribute_num=index_meta->attribute_num;}
+
+  RC insert_index(const Record *record)
+  {
+    LOG_INFO("Record insert to index is %s",record->data());
+    int value_list[20];
+    for(int i=0;i<index_meta_->attribute_num;i++){
+      const char* attribute_name=index_meta_->attribute_name_list[i];
+      const FieldMeta *field_meta = table_meta_->field(attribute_name);
+      const char* begin=record->data()+field_meta->offset();
+      int value;
+      memcpy(&value,begin,sizeof(int)/sizeof(char));
+      value_list[i]=value;
+    }
+    index_meta_->set_.push_back(value_list);
+    return index_->insert_entry(record->data(), &record->rid());
+  }
+
+public:
+  int attribute_num;
+  Index *index_;
+  IndexMeta* index_meta_;
+  TableMeta* table_meta_;
+  std::vector<int*> set_;
+};
+
+static RC insert_unique_index_record_reader_adapter(Record *record, void *context)
+{
+  UniqueIndexInserter &inserter = *(UniqueIndexInserter *)context;
+  return inserter.insert_index(record);
+}
+
 class IndexInserter {
 public:
   explicit IndexInserter(Index *index) : index_(index)
@@ -634,6 +715,13 @@ public:
 
   RC insert_index(const Record *record)
   {
+    // int i=0;
+    // const char* p=record->data();
+    // while(i<100){
+    //   LOG_INFO("Record insert to index is %d",*(p+i));
+    //   i+=1;
+    // }
+    
     return index_->insert_entry(record->data(), &record->rid());
   }
 
@@ -710,8 +798,20 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   // 遍历当前的所有数据，插入这个索引
-  IndexInserter index_inserter(index);
-  rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  if(create_index->unique_flag){
+    UniqueIndexInserter index_inserter(index,&new_index_meta,&table_meta_);
+    rc = scan_record(trx, nullptr, -1, &index_inserter, insert_unique_index_record_reader_adapter);
+    attribute_num=index_inserter.attribute_num;
+    unique_data=index_inserter.set_;
+  }
+  else{
+    IndexInserter index_inserter(index);
+    rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  }
+
+
+  
+  
   if (rc != RC::SUCCESS) {
     // rollback
     delete index;
@@ -1014,6 +1114,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     rc = index->insert_entry(record, &rid);
+
     if (rc != RC::SUCCESS) {
       break;
     }

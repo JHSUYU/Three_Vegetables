@@ -127,6 +127,8 @@ public:
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
   std::vector<Index*> find_all_index();
+  std::vector<int*> unique_data;
+  int attribute_num;
 
 private:
   std::string base_dir_;
