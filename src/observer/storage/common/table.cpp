@@ -366,6 +366,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   LOG_TRACE("table index number is %d",tableMeta.index_num());
   for(int j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
+    if (cur_index->unique==0){
+      break;
+    }
     std::vector<int*> data_set=cur_index->set_;
     LOG_TRACE("data set size is %d",data_set.size());
     int value_list[20];
@@ -392,6 +395,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   }
   for(int j=0;j<tableMeta.index_num();j++){
     const IndexMeta* cur_index=tableMeta.index(j);
+    if (cur_index->unique==0){
+      break;
+    }
     std::vector<int*> data_set=cur_index->set_;
     int value_list_cur[20];
     for(int i=0;i<cur_index->attribute_num;i++){
