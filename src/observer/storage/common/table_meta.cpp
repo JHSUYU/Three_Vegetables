@@ -36,6 +36,7 @@ void TableMeta::swap(TableMeta &other) noexcept
   fields_.swap(other.fields_);
   indexes_.swap(other.indexes_);
   std::swap(record_size_, other.record_size_);
+
 }
 
 RC TableMeta::init_sys_fields()

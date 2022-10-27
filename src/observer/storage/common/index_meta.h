@@ -44,7 +44,7 @@ public:
   int unique;
   size_t attribute_num;
   const char* attribute_name_list[20];
-  std::vector<int*> set_;
+  std::vector<std::vector<int>> set_;
 
 
 protected:

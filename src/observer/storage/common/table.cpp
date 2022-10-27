@@ -369,7 +369,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     if (cur_index->unique==0){
       continue;
     }
-    std::vector<int*> data_set=cur_index->set_;
+    std::vector<std::vector<int>> data_set=cur_index->set_;
     LOG_TRACE("data set size is %d",data_set.size());
     int value_list[20];
     for(int i=0;i<cur_index->attribute_num;i++){
@@ -381,9 +381,10 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
       value_list[i]=value;
     }
     for(int i=0;i<data_set.size();i++){
-      int* data=data_set[i];
+      std::vector<int> data=data_set[i];
       int k;
       for(k=0;k<cur_index->attribute_num;k++){
+        LOG_INFO("Compare data[k] is %d, value_list[k] is %d",data[k],value_list[k]);
           if(data[k]!=value_list[k]){
             break;
           }
@@ -398,18 +399,18 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     if (cur_index->unique==0){
       continue;
     }
-    std::vector<int*> data_set=cur_index->set_;
-    int value_list_cur[20];
+    std::vector<std::vector<int>> data_set=cur_index->set_;
+    std::vector<int> value_list_cur;
     for(int i=0;i<cur_index->attribute_num;i++){
       const char* attribute_name=cur_index->attribute_name_list[i];
       const FieldMeta *field_meta = tableMeta.field(attribute_name);
       const char* begin=record.data()+field_meta->offset();
       int value;
       memcpy(&value,begin,sizeof(int)/sizeof(char));
-      value_list_cur[i]=value;
+      value_list_cur.push_back(value);
     }
     data_set.push_back(value_list_cur);
-    std::vector<int*> * p=const_cast<std::vector<int*> *>(&cur_index->set_);
+    std::vector<std::vector<int>> * p=const_cast<std::vector<std::vector<int>> *>(&cur_index->set_);
     p->push_back(value_list_cur);
     LOG_TRACE("data set size is %d",cur_index->set_.size());
   }
@@ -796,16 +797,21 @@ public:
   RC insert_index(const Record *record)
   {
     LOG_INFO("Record insert to index is %s",record->data());
-    int value_list[20];
+    std::vector<int> value_list;
     for(int i=0;i<index_meta_->attribute_num;i++){
       const char* attribute_name=index_meta_->attribute_name_list[i];
       const FieldMeta *field_meta = table_meta_->field(attribute_name);
       const char* begin=record->data()+field_meta->offset();
       int value;
       memcpy(&value,begin,sizeof(int)/sizeof(char));
-      value_list[i]=value;
+      LOG_INFO("Attribute name is %s",attribute_name);
+      LOG_INFO("Offset is %d",field_meta->offset());
+      LOG_INFO("Insert into is %d",value);
+      value_list.push_back(value);
     }
-    index_meta_->set_.push_back(value_list);
+    std::vector<std::vector<int>> * p=const_cast<std::vector<std::vector<int>> *>(&index_meta_->set_);
+    p->push_back(value_list);
+    LOG_INFO("Insert into is %d",index_meta_->set_[0][0]);
     return index_->insert_entry(record->data(), &record->rid());
   }
 
@@ -883,6 +889,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   IndexMeta new_index_meta;
+  
   RC rc = new_index_meta.init(index_name, *field_meta);
 
   if (rc != RC::SUCCESS) {
@@ -925,8 +932,6 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
 
-  
-  
   if (rc != RC::SUCCESS) {
     // rollback
     delete index;
@@ -973,7 +978,8 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   table_meta_.swap(new_table_meta);
-
+  
+  LOG_INFO("Successfully added a value number %d",table_meta_.index(0)->set_[0][0]);
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
 
   return rc;
