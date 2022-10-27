@@ -107,6 +107,10 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
           aggr_funcs.push_back((char *)field_name);
           continue;
         }
+        if (0 == strcmp(field_name, "NONE")) {
+          LOG_ERROR("SYNTAX ERROR!");
+          return RC::SQL_SYNTAX;
+        }
         // else if ((0 == strcmp(field_name, "1") || 0 == strcmp(field_name, "*")) && i > 0
         //           && 0 == strcmp(select_sql.attributes[i-1].attribute_name, "COUNT")) {
         //   aggr_funcs.pop_back();
@@ -143,6 +147,10 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
         is_aggregation = true;
         aggr_funcs.push_back((char *)field_name);
         continue;
+      }
+      if (0 == strcmp(field_name, "NONE")) {
+        LOG_ERROR("SYNTAX ERROR!");
+        return RC::SQL_SYNTAX;
       }
       Table *table = tables[0];
       const FieldMeta *field_meta = table->table_meta().field(relation_attr.attribute_name);

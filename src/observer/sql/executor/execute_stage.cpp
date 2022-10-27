@@ -262,16 +262,16 @@ void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std:
 {
   const int cell_num = oper.tuple_cell_num();
   const TupleCellSpec *cell_spec = nullptr;
-  int cell_index = 0;
-  for (int i = 0; i < aggr_funcs.size(); i++) {
-    if (i != 0) {
+  int cell_index = cell_num - 1;
+  for (int i = aggr_funcs.size() - 1; i >= 0; i--) {
+    if (i != aggr_funcs.size() - 1) {
       os << " | ";
     }
     if (0 == strncmp(aggr_funcs[i], "COUNT(", 6)) {
       os << aggr_funcs[i];
       continue;
     }
-    oper.tuple_cell_spec_at(cell_index++, cell_spec);
+    oper.tuple_cell_spec_at(cell_index--, cell_spec);
 
     if (cell_spec->alias()) {
       os << aggr_funcs[i];
@@ -288,13 +288,13 @@ void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std:
 
 void tuplecell_list_to_string(std::ostream &os, std::vector<TupleCell> tuple_cells) {
   bool first_field = true;
-  for (int i = 0; i < tuple_cells.size(); i++) {
+  for (int i = tuple_cells.size() - 1; i >= 0; i--) {
     TupleCell cell = tuple_cells[i];
     if (!first_field) {
       os << " | ";
     } else {
       first_field = false;
-    }
+    
     cell.to_string(os);
   }
 }
