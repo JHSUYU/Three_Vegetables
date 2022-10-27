@@ -546,31 +546,30 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
         } else if (0 == strcmp(aggr_func, "SUM") || 0 == strcmp(aggr_func, "AVG")) {
 
           TupleCell ans_cell = aggr_result[i];
-          if (ans_cell.attr_type() != INTS && ans_cell.attr_type() != FLOATS)
+          if (ans_cell.attr_type() != INTS && ans_cell.attr_type() != FLOATS && ans_cell.attr_type() != CHARS)
             return RC::INVALID_ARGUMENT;
 
           // LOG_WARN("HERE 1......");
           switch(ans_cell.attr_type()) {
             case INTS: *cur_sum = *(int *)ans_cell.data(); break;
             case FLOATS: *cur_sum = *(float *)ans_cell.data(); break;
+            case CHARS: *cur_sum = atof(ans_cell.data()); break;
             default: return RC::INVALID_ARGUMENT;
           }
           // LOG_WARN("HERE 2......");
           switch(cell.attr_type()) {
             case INTS: *cell_data = *(int *)cell.data(); break;
             case FLOATS: *cell_data = *(float *)cell.data(); break;
+            case CHARS: *cell_data = atof(cell.data());break;
             default: return RC::INVALID_ARGUMENT;
           }
 
           *cur_sum += *cell_data;
           LOG_INFO("cur_sum = %.2lf, cell_data = %.2lf", *cur_sum, *cell_data);
-          if (ans_cell.attr_type() == INTS) {
-            *int_cur_sum = *cur_sum;
-            LOG_INFO("INT_cur_sum = %d", *int_cur_sum);
-            ans_cell.set_data((char *)int_cur_sum);
-          }
-          else  if (ans_cell.attr_type() == FLOATS) {
-            ans_cell.set_data((char *)cur_sum);
+          switch (ans_cell.attr_type()) {
+            case INTS: {*int_cur_sum = *cur_sum; ans_cell.set_data((char *)int_cur_sum);} break;
+            case FLOATS: {ans_cell.set_data((char *)cur_sum);} break;
+            case CHARS: {ans_cell.set_type(FLOATS); ans_cell.set_data((char *)cur_sum);} break;
           }
           aggr_result[i] = ans_cell;
         } else if (0 == strcmp(aggr_func, "COUNT")) {
