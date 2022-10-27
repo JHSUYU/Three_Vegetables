@@ -52,8 +52,8 @@ Table::~Table()
   LOG_INFO("Table has been closed: %s", name());
 }
 
-RC Table::create(
-    const char *path, const char *name, const char *base_dir, int attribute_count, const AttrInfo attributes[], CLogManager *clog_manager)
+RC Table::create(const char *path, const char *name, const char *base_dir, int attribute_count,
+    const AttrInfo attributes[], CLogManager *clog_manager)
 {
 
   if (common::is_blank(name)) {
@@ -207,23 +207,24 @@ RC Table::destroy(const char *base_dir)
   }
 
   std::string data_file_path = table_data_file(base_dir, name());
-  if(unlink(data_file_path.c_str()) != 0) {  // 删除描述表元数据的文件
+  if (unlink(data_file_path.c_str()) != 0) {  // 删除描述表元数据的文件
     LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file_path.c_str(), errno);
     return RC::GENERIC_ERROR;
   }
 
   // std::string text_data_file = std::string(dir) + "/" + name() + TABLE_TEXT_DATA_SUFFIX;
-  // if(unlink(text_data_file.c_str()) != 0) { // 删除表实现text字段的数据文件（后续实现了text case时需要考虑，最开始可以不考虑这个逻辑）
+  // if(unlink(text_data_file.c_str()) != 0) { // 删除表实现text字段的数据文件（后续实现了text
+  // case时需要考虑，最开始可以不考虑这个逻辑）
   //     LOG_ERROR("Failed to remove text data file=%s, errno=%d", text_data_file.c_str(), errno);
   //     return RC::GENERIC_ERROR;
   // }
 
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {  // 清理所有的索引相关文件数据与索引元数据
-    ((BplusTreeIndex*)indexes_[i])->close();
-    const IndexMeta* index_meta = table_meta_.index(i);
+    ((BplusTreeIndex *)indexes_[i])->close();
+    const IndexMeta *index_meta = table_meta_.index(i);
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
-    if(unlink(index_file.c_str()) != 0) {
+    if (unlink(index_file.c_str()) != 0) {
       LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
       return RC::GENERIC_ERROR;
     }
@@ -231,7 +232,7 @@ RC Table::destroy(const char *base_dir)
   }
   BufferPoolManager::instance().close_file(data_file_path.c_str());
   BufferPoolManager::instance().close_file(meta_file_path.c_str());
-  
+
   return rc;
 }
 RC Table::commit_insert(Trx *trx, const RID &rid)
@@ -324,7 +325,8 @@ RC Table::insert_record(Trx *trx, Record *record)
   if (trx != nullptr) {
     // append clog record
     CLogRecord *clog_record = nullptr;
-    rc = clog_manager_->clog_gen_record(CLogType::REDO_INSERT, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), record);
+    rc = clog_manager_->clog_gen_record(
+        CLogType::REDO_INSERT, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), record);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
       return rc;
@@ -350,6 +352,62 @@ RC Table::recover_insert_record(Record *record)
   return rc;
 }
 
+RC Table::check_unique_index(Record &record)
+{
+  const TableMeta& tableMeta=table_meta();
+  for (int j = 0; j < tableMeta.index_num(); j++) {
+    const IndexMeta *cur_index = tableMeta.index(j);
+    if (cur_index->unique == 0) {
+      continue;
+    }
+    std::vector<std::vector<int>> data_set = cur_index->set_;
+    LOG_TRACE("data set size is %d", data_set.size());
+    int value_list[20];
+    for (int i = 0; i < cur_index->attribute_num; i++) {
+      const char *attribute_name = cur_index->attribute_name_list[i];
+      const FieldMeta *field_meta = tableMeta.field(attribute_name);
+      const char *begin = record.data() + field_meta->offset();
+      int value;
+      memcpy(&value, begin, sizeof(int) / sizeof(char));
+      value_list[i] = value;
+    }
+    for (int i = 0; i < data_set.size(); i++) {
+      std::vector<int> data = data_set[i];
+      int k;
+      for (k = 0; k < cur_index->attribute_num; k++) {
+        LOG_INFO("Compare data[k] is %d, value_list[k] is %d", data[k], value_list[k]);
+        if (data[k] != value_list[k]) {
+          break;
+        }
+      }
+      if (k == cur_index->attribute_num) {
+        return RC::BUFFERPOOL_INVALIDNAME;
+      }
+    }
+  }
+  for (int j = 0; j < tableMeta.index_num(); j++) {
+    const IndexMeta *cur_index = tableMeta.index(j);
+    if (cur_index->unique == 0) {
+      continue;
+    }
+    std::vector<std::vector<int>> data_set = cur_index->set_;
+    std::vector<int> value_list_cur;
+    for (int i = 0; i < cur_index->attribute_num; i++) {
+      const char *attribute_name = cur_index->attribute_name_list[i];
+      const FieldMeta *field_meta = tableMeta.field(attribute_name);
+      const char *begin = record.data() + field_meta->offset();
+      int value;
+      memcpy(&value, begin, sizeof(int) / sizeof(char));
+      value_list_cur.push_back(value);
+    }
+    data_set.push_back(value_list_cur);
+    std::vector<std::vector<int>> *p = const_cast<std::vector<std::vector<int>> *>(&cur_index->set_);
+    p->push_back(value_list_cur);
+    LOG_TRACE("data set size is %d", cur_index->set_.size());
+  }
+  return RC::SUCCESS;
+}
+
 RC Table::insert_record(Trx *trx, int value_num, const Value *values)
 {
   LOG_TRACE("Enter\n");
@@ -358,62 +416,8 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     return RC::INVALID_ARGUMENT;
   }
 
-  char* record_data;
-  RC rc = make_record(value_num, values, record_data);
-  Record record;
-  record.set_data(record_data);
-  const TableMeta &tableMeta=table_meta(); 
-  LOG_TRACE("table index number is %d",tableMeta.index_num());
-  for(int j=0;j<tableMeta.index_num();j++){
-    const IndexMeta* cur_index=tableMeta.index(j);
-    if (cur_index->unique==0){
-      continue;
-    }
-    std::vector<std::vector<int>> data_set=cur_index->set_;
-    LOG_TRACE("data set size is %d",data_set.size());
-    int value_list[20];
-    for(int i=0;i<cur_index->attribute_num;i++){
-      const char* attribute_name=cur_index->attribute_name_list[i];
-      const FieldMeta *field_meta = tableMeta.field(attribute_name);
-      const char* begin=record.data()+field_meta->offset();
-      int value;
-      memcpy(&value,begin,sizeof(int)/sizeof(char));
-      value_list[i]=value;
-    }
-    for(int i=0;i<data_set.size();i++){
-      std::vector<int> data=data_set[i];
-      int k;
-      for(k=0;k<cur_index->attribute_num;k++){
-        LOG_INFO("Compare data[k] is %d, value_list[k] is %d",data[k],value_list[k]);
-          if(data[k]!=value_list[k]){
-            break;
-          }
-      }
-      if(k==cur_index->attribute_num){
-        return RC::BUFFERPOOL_INVALIDNAME;
-      }
-    }
-  }
-  for(int j=0;j<tableMeta.index_num();j++){
-    const IndexMeta* cur_index=tableMeta.index(j);
-    if (cur_index->unique==0){
-      continue;
-    }
-    std::vector<std::vector<int>> data_set=cur_index->set_;
-    std::vector<int> value_list_cur;
-    for(int i=0;i<cur_index->attribute_num;i++){
-      const char* attribute_name=cur_index->attribute_name_list[i];
-      const FieldMeta *field_meta = tableMeta.field(attribute_name);
-      const char* begin=record.data()+field_meta->offset();
-      int value;
-      memcpy(&value,begin,sizeof(int)/sizeof(char));
-      value_list_cur.push_back(value);
-    }
-    data_set.push_back(value_list_cur);
-    std::vector<std::vector<int>> * p=const_cast<std::vector<std::vector<int>> *>(&cur_index->set_);
-    p->push_back(value_list_cur);
-    LOG_TRACE("data set size is %d",cur_index->set_.size());
-  }
+  const TableMeta &tableMeta = table_meta();
+  LOG_TRACE("table index number is %d", tableMeta.index_num());
 
   const int normal_field_start_index = table_meta_.sys_field_num();
   const int field_num = table_meta_.field_num() - normal_field_start_index;
@@ -439,6 +443,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     // temp test code end
 
     RC rc = make_record(field_num, &values[i], record_data);
+    
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
       for (int j = 0; j < record_index; j++) {
@@ -454,6 +459,10 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     Record record;
     record.set_data(record_data);
     
+    RC rc_check_unique_index=check_unique_index(record);
+    if(rc_check_unique_index!=RC::SUCCESS){
+      return rc_check_unique_index;
+    }
     rc = insert_record(trx, &record);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
@@ -484,10 +493,9 @@ const TableMeta &Table::table_meta() const
 }
 static bool check_date(int y, int m, int d)
 {
-    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    bool leap = (y%400==0 || (y%100 && y%4==0));
-    return (m > 0)&&(m <= 12)
-        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  bool leap = (y % 400 == 0 || (y % 100 && y % 4 == 0));
+  return (m > 0) && (m <= 12) && (d > 0) && (d <= ((m == 2 && leap) ? 1 : 0) + mon[m]);
 }
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
@@ -510,23 +518,20 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     LOG_DEBUG("field_type = %d, value_type = %d", field->type(), value.type);
     if (field->type() == DATES && value.type == CHARS) {
       LOG_TRACE("Enter\n");
-      std::string str((char*)value.data);
+      std::string str((char *)value.data);
       std::match_results<std::string::iterator> result;
       std::string pattern = "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
       std::regex r(pattern);
       std::regex_match(str.begin(), str.end(), result, r);
-      if(result.size() == 0) {
+      if (result.size() == 0) {
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       continue;
-    } 
+    }
     if (field->type() != value.type) {
-      if (field_type == INTS && value_type == FLOATS ||
-      field_type == FLOATS && value_type == INTS ||
-      field_type == CHARS && value_type == INTS ||
-      field_type == INTS && value_type == CHARS ||
-      field_type == FLOATS && value_type == CHARS || 
-      field_type == CHARS && value_type == FLOATS) {
+      if (field_type == INTS && value_type == FLOATS || field_type == FLOATS && value_type == INTS ||
+          field_type == CHARS && value_type == INTS || field_type == INTS && value_type == CHARS ||
+          field_type == FLOATS && value_type == CHARS || field_type == CHARS && value_type == FLOATS) {
         continue;
       }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
@@ -555,12 +560,12 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
         copy_len = data_len + 1;
       }
     } else if (field->type() == DATES) {
-      std::string str((char*)value.data);
+      std::string str((char *)value.data);
       std::match_results<std::string::iterator> result;
-      std::string pattern =  "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+      std::string pattern = "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
       std::regex r(pattern);
       std::regex_match(str.begin(), str.end(), result, r);
-      if(result.size() == 0) {
+      if (result.size() == 0) {
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       std::vector<std::string> date;
@@ -571,42 +576,43 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
       LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
       bool b = check_date(y, m, d);
-      if (!b) return RC::INVALID_ARGUMENT;
+      if (!b)
+        return RC::INVALID_ARGUMENT;
       int data = y * 10000 + m * 100 + d;
       LOG_DEBUG("date = %d", data);
-      *(int*)value_for_copy.data = data; 
+      *(int *)value_for_copy.data = data;
       memcpy(record + field->offset(), value_for_copy.data, sizeof(int));
       continue;
     } else if (field->type() == FLOATS && value.type == INTS) {
-      int data = *(int*)value.data;
-      *((float*)value_for_copy.data) = data;
+      int data = *(int *)value.data;
+      *((float *)value_for_copy.data) = data;
       copy_len = sizeof(float);
     } else if (field->type() == INTS && value.type == FLOATS) {
-      float data = *(float*)value.data;
+      float data = *(float *)value.data;
       int num = (int)(data + 0.5);
-      *((int*)value_for_copy.data) = num;
+      *((int *)value_for_copy.data) = num;
       copy_len = sizeof(float);
     } else if (field->type() == FLOATS && value.type == CHARS) {
-      float data = atof((char*)value.data);
+      float data = atof((char *)value.data);
       // TODO invalid case
-      *((float*)value_for_copy.data) = data;
+      *((float *)value_for_copy.data) = data;
       copy_len = sizeof(float);
     } else if (field->type() == INTS && value.type == CHARS) {
-      int data = atoi((char*)value.data);
-      *((int*)value_for_copy.data) = data;
+      int data = atoi((char *)value.data);
+      *((int *)value_for_copy.data) = data;
       copy_len = sizeof(float);
     } else if (field->type() == CHARS && value.type == INTS) {
-      std::string str = std::to_string(*((int*)value.data));
-      value_for_copy.data = (void*)str.c_str();
+      std::string str = std::to_string(*((int *)value.data));
+      value_for_copy.data = (void *)str.c_str();
       copy_len = str.size() + 1;
     } else if (field->type() == CHARS && value.type == FLOATS) {
       LOG_TRACE("Enter\n");
-      std::string data = std::to_string(*(float*)value.data);
-      for(int i = data.size() - 1; i >= 0; i--) {
+      std::string data = std::to_string(*(float *)value.data);
+      for (int i = data.size() - 1; i >= 0; i--) {
         if ('\0' == data[i]) {
           continue;
-        } else if ('0' == data[i]){
-			    data[i] = '\0';
+        } else if ('0' == data[i]) {
+          data[i] = '\0';
         } else if ('.' == data[i]) {
           data[i] = '\0';
           break;
@@ -614,14 +620,14 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
           break;
         }
       }
-      LOG_DEBUG("data = %s", (char*)data.c_str());
-      (value_for_copy.data) = (void*)data.c_str();
-      LOG_DEBUG("data = %s", (char*)value_for_copy.data);
+      LOG_DEBUG("data = %s", (char *)data.c_str());
+      (value_for_copy.data) = (void *)data.c_str();
+      LOG_DEBUG("data = %s", (char *)value_for_copy.data);
       LOG_TRACE("Exit\n");
       copy_len = data.size() + 1;
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
-  } 
+  }
 
   record_out = record;
   return RC::SUCCESS;
@@ -686,16 +692,15 @@ static RC scan_record_reader_adapter(Record *record, void *context)
   return RC::SUCCESS;
 }
 
-RC Table::scan_record(Trx *trx, ConditionFilter *filter,
-		      int limit, void *context,
-		      void (*record_reader)(const char *data, void *context))
+RC Table::scan_record(
+    Trx *trx, ConditionFilter *filter, int limit, void *context, void (*record_reader)(const char *data, void *context))
 {
   RecordReaderScanAdapter adapter(record_reader, context);
   return scan_record(trx, filter, limit, (void *)&adapter, scan_record_reader_adapter);
 }
 
-RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *context,
-                      RC (*record_reader)(Record *record, void *context))
+RC Table::scan_record(
+    Trx *trx, ConditionFilter *filter, int limit, void *context, RC (*record_reader)(Record *record, void *context))
 {
   LOG_TRACE("Enter\n");
   if (nullptr == record_reader) {
@@ -748,9 +753,8 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *contex
   return rc;
 }
 
-RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter *filter,
-                               int limit, void *context,
-                               RC (*record_reader)(Record *, void *))
+RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter *filter, int limit, void *context,
+    RC (*record_reader)(Record *, void *))
 {
   RC rc = RC::SUCCESS;
   RID rid;
@@ -790,37 +794,39 @@ RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter 
 
 class UniqueIndexInserter {
 public:
-  explicit UniqueIndexInserter(Index *index,IndexMeta *index_meta,TableMeta* table_meta) : index_(index),index_meta_(index_meta),
-  table_meta_(table_meta)
-  {attribute_num=index_meta->attribute_num;}
+  explicit UniqueIndexInserter(Index *index, IndexMeta *index_meta, TableMeta *table_meta)
+      : index_(index), index_meta_(index_meta), table_meta_(table_meta)
+  {
+    attribute_num = index_meta->attribute_num;
+  }
 
   RC insert_index(const Record *record)
   {
-    LOG_INFO("Record insert to index is %s",record->data());
+    LOG_INFO("Record insert to index is %s", record->data());
     std::vector<int> value_list;
-    for(int i=0;i<index_meta_->attribute_num;i++){
-      const char* attribute_name=index_meta_->attribute_name_list[i];
+    for (int i = 0; i < index_meta_->attribute_num; i++) {
+      const char *attribute_name = index_meta_->attribute_name_list[i];
       const FieldMeta *field_meta = table_meta_->field(attribute_name);
-      const char* begin=record->data()+field_meta->offset();
+      const char *begin = record->data() + field_meta->offset();
       int value;
-      memcpy(&value,begin,sizeof(int)/sizeof(char));
-      LOG_INFO("Attribute name is %s",attribute_name);
-      LOG_INFO("Offset is %d",field_meta->offset());
-      LOG_INFO("Insert into is %d",value);
+      memcpy(&value, begin, sizeof(int) / sizeof(char));
+      LOG_INFO("Attribute name is %s", attribute_name);
+      LOG_INFO("Offset is %d", field_meta->offset());
+      LOG_INFO("Insert into is %d", value);
       value_list.push_back(value);
     }
-    std::vector<std::vector<int>> * p=const_cast<std::vector<std::vector<int>> *>(&index_meta_->set_);
+    std::vector<std::vector<int>> *p = const_cast<std::vector<std::vector<int>> *>(&index_meta_->set_);
     p->push_back(value_list);
-    LOG_INFO("Insert into is %d",index_meta_->set_[0][0]);
+    LOG_INFO("Insert into is %d", index_meta_->set_[0][0]);
     return index_->insert_entry(record->data(), &record->rid());
   }
 
 public:
   int attribute_num;
   Index *index_;
-  IndexMeta* index_meta_;
-  TableMeta* table_meta_;
-  std::vector<int*> set_;
+  IndexMeta *index_meta_;
+  TableMeta *table_meta_;
+  std::vector<int *> set_;
 };
 
 static RC insert_unique_index_record_reader_adapter(Record *record, void *context)
@@ -842,7 +848,7 @@ public:
     //   LOG_INFO("Record insert to index is %d",*(p+i));
     //   i+=1;
     // }
-    
+
     return index_->insert_entry(record->data(), &record->rid());
   }
 
@@ -856,29 +862,34 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
   return inserter.insert_index(record);
 }
 
-RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, const CreateIndex* create_index)
+RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, const CreateIndex *create_index)
 {
-  std::string attribute_names_str=std::string(attribute_name);
-  for(int i=1;i<create_index->attribute_num;i++){
-    attribute_names_str=attribute_names_str+"_"+create_index->attribute_names[create_index->attribute_num-1-i];
+  std::string attribute_names_str = std::string(attribute_name);
+  for (int i = 1; i < create_index->attribute_num; i++) {
+    attribute_names_str =
+        attribute_names_str + "_" + create_index->attribute_names[create_index->attribute_num - 1 - i];
   }
-  const char* attribute_multi_name=attribute_names_str.c_str();
-  
+  const char *attribute_multi_name = attribute_names_str.c_str();
+
   if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
   const FieldMeta *field_meta_multi;
-  for(int i=0;i<create_index->attribute_num;i++){
-    field_meta_multi=table_meta_.field(create_index->attribute_names[i]);
-    if(!field_meta_multi){
-      LOG_INFO("Zhenyu multi Invalid input arguments, there is no field of %s in table:%s.", create_index->attribute_names[i], name());
+  for (int i = 0; i < create_index->attribute_num; i++) {
+    field_meta_multi = table_meta_.field(create_index->attribute_names[i]);
+    if (!field_meta_multi) {
+      LOG_INFO("Zhenyu multi Invalid input arguments, there is no field of %s in table:%s.",
+          create_index->attribute_names[i],
+          name());
       return RC::SCHEMA_FIELD_MISSING;
     }
   }
   if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_multi_field(attribute_multi_name)) {
     LOG_INFO("Invalid input arguments, table name is %s, index %s exist or attribute %s exist index",
-             name(), index_name, attribute_multi_name);
+        name(),
+        index_name,
+        attribute_multi_name);
     return RC::SCHEMA_INDEX_EXIST;
   }
 
@@ -889,48 +900,45 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   IndexMeta new_index_meta;
-  
+
   RC rc = new_index_meta.init(index_name, *field_meta);
 
   if (rc != RC::SUCCESS) {
-    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
-             name(), index_name, attribute_name);
+    LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
     return rc;
   }
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
-  LOG_INFO("index attribute num is %d",create_index->attribute_num);
+  LOG_INFO("index attribute num is %d", create_index->attribute_num);
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  LOG_INFO("index attribute num is %d",create_index->attribute_num);
+  LOG_INFO("index attribute num is %d", create_index->attribute_num);
   rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
-  LOG_INFO("index attribute num is %d",create_index->attribute_num);
+  LOG_INFO("index attribute num is %d", create_index->attribute_num);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
     return rc;
   }
 
-  LOG_INFO("index attribute num is %d",create_index->attribute_num);
-  new_index_meta.unique=create_index->unique_flag;
-  new_index_meta.attribute_num=0;
-  for(int i=0;i<create_index->attribute_num;i++){
-    new_index_meta.attribute_name_list[i]=create_index->attribute_names[i];
-    new_index_meta.attribute_num+=1;
+  LOG_INFO("index attribute num is %d", create_index->attribute_num);
+  new_index_meta.unique = create_index->unique_flag;
+  new_index_meta.attribute_num = 0;
+  for (int i = 0; i < create_index->attribute_num; i++) {
+    new_index_meta.attribute_name_list[i] = create_index->attribute_names[i];
+    new_index_meta.attribute_num += 1;
   }
 
   // 遍历当前的所有数据，插入这个索引
-  if(create_index->unique_flag){
-    UniqueIndexInserter index_inserter(index,&new_index_meta,&table_meta_);
+  if (create_index->unique_flag) {
+    UniqueIndexInserter index_inserter(index, &new_index_meta, &table_meta_);
     rc = scan_record(trx, nullptr, -1, &index_inserter, insert_unique_index_record_reader_adapter);
-    attribute_num=index_inserter.attribute_num;
-    unique_data=index_inserter.set_;
-  }
-  else{
+    attribute_num = index_inserter.attribute_num;
+    unique_data = index_inserter.set_;
+  } else {
     IndexInserter index_inserter(index);
     rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
   }
-
 
   if (rc != RC::SUCCESS) {
     // rollback
@@ -978,8 +986,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   table_meta_.swap(new_table_meta);
-  
-  LOG_INFO("Successfully added a value number %d",table_meta_.index(0)->set_[0][0]);
+
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
 
   return rc;
@@ -987,8 +994,8 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 // hsy add
 class RecordUpdater {
 public:
-  RecordUpdater(Table &table, Trx *trx, const char *attribute_name, const Value *value): table_(table), trx_(trx),
-  attribute_name_(attribute_name), value_(value)
+  RecordUpdater(Table &table, Trx *trx, const char *attribute_name, const Value *value)
+      : table_(table), trx_(trx), attribute_name_(attribute_name), value_(value)
   {}
   RC update_record(Record *record)
   {
@@ -999,11 +1006,11 @@ public:
     // int values_num = table_.table_meta().field_num();
     // Value values[values_num];
     // const IndexMeta *meta = table_.table_meta().find_index_by_field(attribute_name_);
-    const FieldMeta* field_meta = table_.table_meta_.field(attribute_name_);
+    const FieldMeta *field_meta = table_.table_meta_.field(attribute_name_);
     int offset = field_meta->offset();
     // table_.make_record(values_num, values, new_record);
     // record->set_data(new_record);
-    char* data = record->data();
+    char *data = record->data();
     size_t copy_len = field_meta->len();
     if (field_meta->type() == CHARS) {
       const size_t data_len = strlen((const char *)value_->data);
@@ -1013,12 +1020,12 @@ public:
       memcpy(data + offset, value_->data, copy_len);
     } else if (field_meta->type() == DATES) {
       LOG_TRACE("Enter\n");
-      std::string str((char*)value_->data);
+      std::string str((char *)value_->data);
       std::match_results<std::string::iterator> result;
-      std::string pattern =  "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+      std::string pattern = "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
       std::regex r(pattern);
       std::regex_match(str.begin(), str.end(), result, r);
-      if(result.size() == 0) {
+      if (result.size() == 0) {
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       std::vector<std::string> date;
@@ -1029,7 +1036,8 @@ public:
       int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
       LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
       bool b = check_date(y, m, d);
-      if (!b) return RC::INVALID_ARGUMENT;
+      if (!b)
+        return RC::INVALID_ARGUMENT;
       int date_data = y * 10000 + m * 100 + d;
       LOG_DEBUG("date = %d", data);
       memcpy(data + offset, &date_data, sizeof(int));
@@ -1049,17 +1057,18 @@ public:
   {
     return updated_count_;
   }
+
 private:
   Table &table_;
   Trx *trx_;
   int updated_count_ = 0;
   const char *attribute_name_;
   const Value *value_;
-
 };
 
 // hsy add
-static RC record_reader_update_adapter(Record *record, void *context) {
+static RC record_reader_update_adapter(Record *record, void *context)
+{
   RecordUpdater &record_updater = *(RecordUpdater *)context;
   return record_updater.update_record(record);
 }
@@ -1068,32 +1077,33 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
     const Condition conditions[], int *updated_count)
 {
   // hsy add
-  if(attribute_name == nullptr || value == nullptr) {
+  if (attribute_name == nullptr || value == nullptr) {
     LOG_ERROR("Invalid argument. table name: %s, attribute name=%s, values=%p", name(), attribute_name, value);
     return RC::INVALID_ARGUMENT;
   }
   RecordUpdater record_updater(*this, trx, attribute_name, value);
   RC rc = RC::SUCCESS;
-  if(condition_num == 0) {
+  if (condition_num == 0) {
     LOG_TRACE("condition num = 0");
     rc = scan_record(trx, nullptr, -1, &record_updater, record_reader_update_adapter);
-    if(updated_count != nullptr) {
+    if (updated_count != nullptr) {
       *updated_count = record_updater.updated_count();
     }
   } else {
     CompositeConditionFilter filter;
     filter.init(*this, conditions, condition_num);
     LOG_TRACE("start scan record for updating");
-    LOG_DEBUG("attribute_name = %s, value:%s", attribute_name, (char*)value->data);
+    LOG_DEBUG("attribute_name = %s, value:%s", attribute_name, (char *)value->data);
     rc = scan_record(trx, &filter, -1, &record_updater, record_reader_update_adapter);
-    if(updated_count != nullptr) {
+    if (updated_count != nullptr) {
       *updated_count = record_updater.updated_count();
     }
     LOG_TRACE("after updating, the updated_count = %d", *updated_count);
   }
   return rc;
 }
-RC Table::update_record(Trx *trx, Record *record/* old record in the page, should be new */) {
+RC Table::update_record(Trx *trx, Record *record /* old record in the page, should be new */)
+{
   RC rc = RC::SUCCESS;
   if (trx != nullptr) {
     rc = trx->update_record(this, record);
@@ -1102,7 +1112,10 @@ RC Table::update_record(Trx *trx, Record *record/* old record in the page, shoul
     rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to update indexes of record (rid=%d.%d). rc=%d:%s",
-                 record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+          record->rid().page_num,
+          record->rid().slot_num,
+          rc,
+          strrc(rc));
     } else {
       LOG_TRACE("execute record_handler_'s update_record");
       rc = record_handler_->update_record(record);
@@ -1155,24 +1168,27 @@ RC Table::delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count)
 RC Table::delete_record(Trx *trx, Record *record)
 {
   RC rc = RC::SUCCESS;
-  
+
   rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
-                record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+        record->rid().page_num,
+        record->rid().slot_num,
+        rc,
+        strrc(rc));
     return rc;
-  } 
-  
+  }
+
   rc = record_handler_->delete_record(&record->rid());
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete record (rid=%d.%d). rc=%d:%s",
-                record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+    LOG_ERROR(
+        "Failed to delete record (rid=%d.%d). rc=%d:%s", record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
     return rc;
   }
 
   if (trx != nullptr) {
     rc = trx->delete_record(this, record);
-    
+
     CLogRecord *clog_record = nullptr;
     rc = clog_manager_->clog_gen_record(CLogType::REDO_DELETE, trx->get_current_id(), clog_record, name(), 0, record);
     if (rc != RC::SUCCESS) {
@@ -1192,7 +1208,7 @@ RC Table::recover_delete_record(Record *record)
 {
   RC rc = RC::SUCCESS;
   rc = record_handler_->delete_record(&record->rid());
-  
+
   return rc;
 }
 
@@ -1207,7 +1223,10 @@ RC Table::commit_delete(Trx *trx, const RID &rid)
   rc = delete_entry_of_indexes(record.data(), record.rid(), false);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record(rid=%d.%d). rc=%d:%s",
-        rid.page_num, rid.slot_num, rc, strrc(rc));  // panic?
+        rid.page_num,
+        rid.slot_num,
+        rc,
+        strrc(rc));  // panic?
   }
 
   rc = record_handler_->delete_record(&rid);
@@ -1328,36 +1347,31 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)
   bool left_inclusive = false;
   bool right_inclusive = false;
   switch (filter.comp_op()) {
-  case EQUAL_TO: {
-    left_key = (const char *)value_cond_desc->value;
-    right_key = (const char *)value_cond_desc->value;
-    left_inclusive = true;
-    right_inclusive = true;
-  }
-    break;
-  case LESS_EQUAL: {
-    right_key = (const char *)value_cond_desc->value;
-    right_inclusive = true;
-  }
-    break;
-  case GREAT_EQUAL: {
-    left_key = (const char *)value_cond_desc->value;
-    left_inclusive = true;
-  }
-    break;
-  case LESS_THAN: {
-    right_key = (const char *)value_cond_desc->value;
-    right_inclusive = false;
-  }
-    break;
-  case GREAT_THAN: {
-    left_key = (const char *)value_cond_desc->value;
-    left_inclusive = false;
-  }
-    break;
-  default: {
-    return nullptr;
-  }
+    case EQUAL_TO: {
+      left_key = (const char *)value_cond_desc->value;
+      right_key = (const char *)value_cond_desc->value;
+      left_inclusive = true;
+      right_inclusive = true;
+    } break;
+    case LESS_EQUAL: {
+      right_key = (const char *)value_cond_desc->value;
+      right_inclusive = true;
+    } break;
+    case GREAT_EQUAL: {
+      left_key = (const char *)value_cond_desc->value;
+      left_inclusive = true;
+    } break;
+    case LESS_THAN: {
+      right_key = (const char *)value_cond_desc->value;
+      right_inclusive = false;
+    } break;
+    case GREAT_THAN: {
+      left_key = (const char *)value_cond_desc->value;
+      left_inclusive = false;
+    } break;
+    default: {
+      return nullptr;
+    }
   }
 
   if (filter.attr_type() == CHARS) {
@@ -1367,7 +1381,8 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter)
   return index->create_scanner(left_key, left_len, left_inclusive, right_key, right_len, right_inclusive);
 }
 
-std::vector<Index *> Table::find_all_index() {
+std::vector<Index *> Table::find_all_index()
+{
 
   return indexes_;
 }
@@ -1404,7 +1419,10 @@ RC Table::sync()
     rc = index->sync();
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to flush index's pages. table=%s, index=%s, rc=%d:%s",
-          name(), index->index_meta().name(), rc, strrc(rc));
+          name(),
+          index->index_meta().name(),
+          rc,
+          strrc(rc));
       return rc;
     }
   }
