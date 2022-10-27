@@ -121,6 +121,19 @@ RC Table::create(
   return rc;
 }
 
+// hsy add
+RC Table::create_temporary(const char* name, int attribute_count, const AttrInfo attributes[]) {
+  // no need to persist
+  RC rc = RC::SUCCESS;
+  rc = table_meta_.init(name, attribute_count, attributes);
+  LOG_DEBUG("rc = %d", rc);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to init table meta. name:%s, ret:%d", name, rc);
+    return rc;  // delete table file
+  }
+  return rc;
+}
+
 RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_manager)
 {
   // 加载元数据文件
@@ -569,6 +582,24 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   return RC::SUCCESS;
 }
 
+RC Table::merge_records(std::vector<Table*> tables, std::vector<Record*> records, char *&record_out) {
+  LOG_TRACE("Enter\n");
+  const int normal_field_start_index = table_meta_.sys_field_num();
+  const int field_num = table_meta_.field_num() - normal_field_start_index;
+  int index = 0, ith_record = 0, record_offset = 0;
+  Record* current_record = records[0];
+  int record_size = table_meta_.record_size();
+  char *record = new char[record_size];
+  int current_offset = 0;
+  for (int i = 0; i < tables.size(); i++) {
+    int current_table_record_size = tables[i]->table_meta().record_size();
+    memcpy(record + current_offset, records[i]->data(), current_table_record_size);
+    current_offset += current_table_record_size;
+  }
+  record_out = record;
+  LOG_TRACE("Exit\n");
+  return RC::SUCCESS;
+}
 RC Table::init_record_handler(const char *base_dir)
 {
   std::string data_file = table_data_file(base_dir, table_meta_.name());

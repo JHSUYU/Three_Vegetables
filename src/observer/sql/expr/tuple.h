@@ -42,9 +42,10 @@ public:
 
   void set_alias(const char *alias)
   {
-    this->alias_ = alias;
+    std::string copy(alias);
+    this->alias_ = copy;
   }
-  const char *alias() const
+  std::string alias() const
   {
     return alias_;
   }
@@ -55,7 +56,7 @@ public:
   }
 
 private:
-  const char *alias_ = nullptr;
+  std::string alias_;
   Expression *expression_ = nullptr;
 };
 
@@ -100,11 +101,13 @@ public:
 
   int cell_num() const override
   {
+    LOG_TRACE("Enter\n");
     return speces_.size();
   }
 
   RC cell_at(int index, TupleCell &cell) const override
   {
+    LOG_TRACE("Enter\n");
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       LOG_WARN("invalid argument. index=%d", index);
       return RC::INVALID_ARGUMENT;
@@ -116,24 +119,32 @@ public:
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset());
     cell.set_length(field_meta->len());
+    LOG_TRACE("End\n");
     return RC::SUCCESS;
   }
 
   RC find_cell(const Field &field, TupleCell &cell) const override
   {
+    LOG_TRACE("Enter\n");
     const char *table_name = field.table_name();
+    LOG_DEBUG("table_name == nullptr = %s", table_name);
     if (0 != strcmp(table_name, table_->name())) {
       return RC::NOTFOUND;
     }
-
+    LOG_TRACE("before field_name");
     const char *field_name = field.field_name();
+    LOG_DEBUG("field_name = %s", field_name);
     for (size_t i = 0; i < speces_.size(); ++i) {
       const FieldExpr * field_expr = (const FieldExpr *)speces_[i]->expression();
+      LOG_DEBUG("field_expr == nullptr = %d", field_expr == nullptr);
       const Field &field = field_expr->field();
+      LOG_DEBUG("field_name = %s", field.field_name());
       if (0 == strcmp(field_name, field.field_name())) {
-	return cell_at(i, cell);
+        LOG_TRACE("find cell, going to find data");
+	      return cell_at(i, cell);
       }
     }
+    LOG_TRACE("Not found\n");
     return RC::NOTFOUND;
   }
 
@@ -202,6 +213,7 @@ public:
 
   RC cell_at(int index, TupleCell &cell) const override
   {
+    LOG_TRACE("Enter\n");
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
       return RC::GENERIC_ERROR;
     }
@@ -210,11 +222,14 @@ public:
     }
 
     const TupleCellSpec *spec = speces_[index];
+    LOG_DEBUG("spec_expr == NULL == %d", spec->expression() == nullptr);
+    LOG_TRACE("Exit");
     return spec->expression()->get_value(*tuple_, cell);
   }
 
   RC find_cell(const Field &field, TupleCell &cell) const override
   {
+    LOG_TRACE("Enter\n");
     return tuple_->find_cell(field, cell);
   }
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override

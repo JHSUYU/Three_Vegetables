@@ -49,6 +49,8 @@ public:
   RC create(const char *path, const char *name, const char *base_dir, int attribute_count, const AttrInfo attributes[],
       CLogManager *clog_manager);
 
+  // hsy add 
+  RC create_temporary(const char* name, int attribute_count, const AttrInfo attributes[]);
   /**
    * 打开一个表
    * @param meta_file 保存表元数据的文件完整路径
@@ -109,6 +111,7 @@ private:
 
 public:
   RC recover_insert_record(Record *record);
+  RC merge_records(std::vector<Table*> tables, std::vector<Record*> records, char *&record_out);
 
 private:
   friend class RecordUpdater;

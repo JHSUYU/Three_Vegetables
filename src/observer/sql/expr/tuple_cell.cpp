@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 
 void TupleCell::to_string(std::ostream &os) const
 {
+  LOG_TRACE("Enter\n");
   switch (attr_type_) {
   case INTS: { 
     os << *(int *)data_;

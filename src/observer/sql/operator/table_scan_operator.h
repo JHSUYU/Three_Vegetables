@@ -18,16 +18,34 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "rc.h"
 
+#include <vector>
+
 class Table;
 
 class TableScanOperator : public Operator
 {
 public:
-  TableScanOperator(Table *table)
-    : table_(table)
-  {}
+  TableScanOperator(Table* table) {
+    tables_.push_back(table);
+    record_scanners_.assign(tables_.size(), new RecordFileScanner());
+    tuples_.assign(tables_.size(), new RowTuple());
+    current_record_.assign(tables_.size(), new Record());
+  }
+  TableScanOperator(std::vector<Table *>tables)
+  {
+    for (auto t: tables) {
+      tables_.push_back(t);
+    }
+    record_scanners_.assign(tables.size(), new RecordFileScanner());
+    tuples_.assign(tables.size(), new RowTuple());
+    current_record_.assign(tables.size(), new Record());
+  }
 
-  virtual ~TableScanOperator() = default;
+  ~TableScanOperator() {
+    for (int i = 0; i < record_scanners_.size(); i++) {
+      delete record_scanners_[i];
+    }
+  }
 
   RC open() override;
   RC next() override;
@@ -42,8 +60,12 @@ public:
 
   // RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override;
 private:
-  Table *table_ = nullptr;
-  RecordFileScanner record_scanner_;
-  Record current_record_;
+  std::vector<Table *> tables_ ;
+  std::vector<RecordFileScanner*> record_scanners_;
+  std::vector<Record*> current_record_;
+  std::vector<RowTuple*> tuples_;
+  // temp data
   RowTuple tuple_;
+  Table* table_;
+  Record record_;
 };
