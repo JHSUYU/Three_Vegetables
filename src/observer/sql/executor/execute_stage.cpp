@@ -294,7 +294,7 @@ void tuplecell_list_to_string(std::ostream &os, std::vector<TupleCell> tuple_cel
       os << " | ";
     } else {
       first_field = false;
-    
+    }
     cell.to_string(os);
   }
 }
