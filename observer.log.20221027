@@ -5970,3 +5970,159 @@ STAGES=SessionStage,ExecuteStage,OptimizeStage,ParseStage,ResolveStage,PlanCache
 
 [2022-10-27 0:32:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23055, nsec=818964000
 
+[2022-10-27 0:33:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23055, usec=819171
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23055, usec=819171, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23115:819386-5
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe511179700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23055, usec=819446
+
+[2022-10-27 0:33:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23115, nsec=819386000
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23115, usec=819700
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23115, usec=819700, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23175:819932-7
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe510978700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23115, usec=819992
+
+[2022-10-27 0:34:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23175, nsec=819932000
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23175, usec=820206
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23175, usec=820206, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23235:820430-9
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f3fff700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23175, usec=820479
+
+[2022-10-27 0:35:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23235, nsec=820430000
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23235, usec=820858
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23235, usec=820858, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23295:821621-11
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe511179700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23235, usec=821726
+
+[2022-10-27 0:36:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23295, nsec=821621000
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23295, usec=821713
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23295, usec=821713, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23355:822023-13
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe510978700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23295, usec=822084
+
+[2022-10-27 0:37:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23355, nsec=822023000
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23355, usec=822119
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 463]>>triggering timer event: sec=23355, usec=822119, typeid=N6common18MetricsReportEventE
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 484]>>sleeping indefinately
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp callback_event 132]>>Enter
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>DefaultStorageStage.query:mean:0,tps:0
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.readsocket:mean:0,tps:0
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.sql:mean:0,tps:0
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  INFO: log_reporter.cpp report 36]>>SessionStage.writesocket:mean:0,tps:0
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp callback_event 142]>>Exit
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp handle_event 101]>>Enter
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: metrics_stage.cpp handle_event 126]>>Exit
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: timer_stage.cpp register_timer 362]>>registering event: token=23415:822314-15
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f3fff700  TRACE: timer_stage.cpp trigger_timer_check 416]>>signaling timer thread to complete timer check
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 445]>>checking timer: sec=23355, usec=822402
+
+[2022-10-27 0:38:18 pid:12736 tid:7fe4f33fd700  TRACE: timer_stage.cpp check_timer 493]>>sleeping until next deadline: sec=23415, nsec=822314000
+
