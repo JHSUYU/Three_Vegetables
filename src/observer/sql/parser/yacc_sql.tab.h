@@ -99,13 +99,20 @@ extern int yydebug;
     LK = 300,                      /* LK  */
     NLK = 301,                     /* NLK  */
     UNIQUE = 302,                  /* UNIQUE  */
-    NUMBER = 303,                  /* NUMBER  */
-    FLOAT = 304,                   /* FLOAT  */
-    ID = 305,                      /* ID  */
-    PATH = 306,                    /* PATH  */
-    SSS = 307,                     /* SSS  */
-    STAR = 308,                    /* STAR  */
-    STRING_V = 309                 /* STRING_V  */
+    MAX = 303,                     /* MAX  */
+    MIN = 304,                     /* MIN  */
+    SUM = 305,                     /* SUM  */
+    AVG = 306,                     /* AVG  */
+    COUNT = 307,                   /* COUNT  */
+    COUNTALLXING = 308,            /* COUNTALLXING  */
+    COUNTALL1 = 309,               /* COUNTALL1  */
+    NUMBER = 310,                  /* NUMBER  */
+    FLOAT = 311,                   /* FLOAT  */
+    ID = 312,                      /* ID  */
+    PATH = 313,                    /* PATH  */
+    SSS = 314,                     /* SSS  */
+    STAR = 315,                    /* STAR  */
+    STRING_V = 316                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -158,19 +165,26 @@ extern int yydebug;
 #define LK 300
 #define NLK 301
 #define UNIQUE 302
-#define NUMBER 303
-#define FLOAT 304
-#define ID 305
-#define PATH 306
-#define SSS 307
-#define STAR 308
-#define STRING_V 309
+#define MAX 303
+#define MIN 304
+#define SUM 305
+#define AVG 306
+#define COUNT 307
+#define COUNTALLXING 308
+#define COUNTALL1 309
+#define NUMBER 310
+#define FLOAT 311
+#define ID 312
+#define PATH 313
+#define SSS 314
+#define STAR 315
+#define STRING_V 316
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 110 "yacc_sql.y"
+#line 117 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -180,7 +194,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 184 "y.tab.h"
+#line 198 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
