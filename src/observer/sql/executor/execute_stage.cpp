@@ -704,7 +704,14 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   } else {
     LOG_TRACE("Enter\n");
     JoinOperator* join_oper = new JoinOperator(scan_ops[0], scan_ops[1]);
-    pred_oper.add_child(join_oper);
+    JoinOperator* final_join_oper = join_oper;
+    for (int i = 2; i < select_stmt->tables().size(); i++) {
+      JoinOperator *new_join = new JoinOperator(join_oper, scan_ops[i]);
+      final_join_oper = new_join;
+      join_oper = final_join_oper;
+    }
+    
+    pred_oper.add_child(final_join_oper);
   }
   LOG_TRACE("Before proj oper\n");
   ProjectOperator project_oper;

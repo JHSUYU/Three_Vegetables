@@ -121,6 +121,7 @@ RC Table::create(const char *path, const char *name, const char *base_dir, int a
   return rc;
 }
 
+
 RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_manager)
 {
   // 加载元数据文件
