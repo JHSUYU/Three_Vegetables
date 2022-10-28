@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "defs.h"
 #include "storage/common/index_meta.h"
 #include "storage/common/field_meta.h"
+#include "common/log/log.h"
 
 class Field;
 
@@ -88,7 +89,13 @@ public:
   Record() = default;
   ~Record() = default;
 
-  void set_data(char *data) { this->data_ = data; }
+  void set_data(char *data) { 
+    LOG_TRACE("Enter\n");
+    LOG_DEBUG("data == nullptr = %d", data == nullptr);
+    LOG_DEBUG("this->data_: %p, data: %p", this->data_, data);
+    this->data_ = data; 
+    LOG_TRACE("Exit\n");
+    }
   char *data() { return this->data_; }
   const char *data() const { return this->data_; }
 

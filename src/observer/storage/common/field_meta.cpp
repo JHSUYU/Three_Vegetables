@@ -95,6 +95,10 @@ bool FieldMeta::visible() const
   return visible_;
 }
 
+void FieldMeta::set_offset(int offset_) {
+  this->attr_offset_ = offset_;
+}
+
 void FieldMeta::desc(std::ostream &os) const
 {
   os << "field name=" << name_ << ", type=" << attr_type_to_string(attr_type_) << ", len=" << attr_len_

@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
+#include "sql/operator/join_operator.h"
 #include "sql/operator/project_operator.h"
 #include "sql/operator/update_operator.h"
 #include "sql/stmt/stmt.h"
@@ -238,8 +239,9 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right)
   }
 }
 
-void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
+void print_tuple_header(std::ostream &os, const ProjectOperator &oper, bool is_multi_table)
 {
+  LOG_TRACE("Enter\n");
   const int cell_num = oper.tuple_cell_num();
   const TupleCellSpec *cell_spec = nullptr;
   for (int i = 0; i < cell_num; i++) {
@@ -248,14 +250,21 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
       os << " | ";
     }
 
-    if (cell_spec->alias()) {
-      os << cell_spec->alias();
+    if (cell_spec->alias().size() > 0) {
+      if (is_multi_table) {
+        os << cell_spec->alias();
+      } else {
+        std::vector<std::string> names;
+        common::split_string(cell_spec->alias(), ".", names);
+        os << names.back().c_str();
+      }
     }
   }
 
   if (cell_num > 0) {
     os << '\n';
   }
+  LOG_TRACE("Exit\n");
 }
 
 void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std::vector<char *> aggr_funcs)
@@ -273,10 +282,10 @@ void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std:
     }
     oper.tuple_cell_spec_at(cell_index--, cell_spec);
 
-    if (cell_spec->alias()) {
+    if (cell_spec->alias().size() > 0) {
       os << aggr_funcs[i];
       os << "(";
-      os << cell_spec->alias();
+      os << cell_spec->alias().c_str();
       os << ")";
     }
   }
@@ -301,11 +310,15 @@ void tuplecell_list_to_string(std::ostream &os, std::vector<TupleCell> tuple_cel
 
 void tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
+  LOG_TRACE("Enter\n");
   TupleCell cell;
   RC rc = RC::SUCCESS;
   bool first_field = true;
+  LOG_DEBUG("tuple cell_num = %d", tuple.cell_num());
   for (int i = 0; i < tuple.cell_num(); i++) {
+    LOG_TRACE("before cell at");
     rc = tuple.cell_at(i, cell);
+    LOG_TRACE("after cell at");
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
       break;
@@ -448,29 +461,39 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 
 static RC check_select_meta(SelectStmt *select_stmt) {
   LOG_TRACE("Enter\n");
-  std::string table_name = select_stmt->tables()[0]->name();
+  RC rc = RC::SUCCESS;
+  std::vector<Table*> tables;
+  for (Table* table: select_stmt->tables()) {
+    tables.emplace_back(table);
+    std::string table_name(table->name());
+    std::string path = "./miniob/db/sys/" + table_name + ".data";
+    int fd = ::open(path.c_str(), O_RDONLY);
+    if (fd < 0) {
+      rc = RC::INVALID_ARGUMENT;
+      return rc;
+    }
+    close(fd);
+  }
+
   BufferPoolManager &bpm = BufferPoolManager::instance();
   DiskBufferPool *buffer_pool;
-  RC rc = RC::SUCCESS;
-  std::string path = "./miniob/db/sys/" + table_name + ".data";
-  int fd = ::open(path.c_str(), O_RDONLY);
-  if (fd < 0) {
-    rc = RC::INVALID_ARGUMENT;
-    return rc;
-  }
-  close(fd);
-  // TODO: support multi tables
-  Table *table = select_stmt->tables()[0];
-  TableMeta table_meta = table->table_meta();
   std::unordered_set<std::string> field_names;
-  const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
-  for (FieldMeta meta: (*field_metas)) {
-    field_names.insert(meta.name());
+  for (Table* table: tables) {
+    TableMeta table_meta = table->table_meta();
+    const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
+    std::string table_name(table->name());
+    for (FieldMeta meta: (*field_metas)) {
+      std::string meta_name(meta.name());
+      field_names.insert(table_name + meta_name);
+    }
   }
   std::vector<Field> fields = select_stmt->query_fields();
   for (Field field: fields) {
-    if (field_names.find(field.field_name()) == field_names.end()) {
+    std::string table_name(field.table_name());
+    std::string field_name(field.field_name());
+    if(field_names.find(table_name + field_name) == field_names.end()) {
       rc = RC::INVALID_ARGUMENT;
+      break;
     }
   }
   LOG_TRACE("Exit\n");
@@ -642,27 +665,48 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
-  if (select_stmt->tables().size() != 1) {
-    LOG_WARN("select more than 1 tables is not supported");
-    rc = RC::UNIMPLENMENT;
-    return rc;
-  }
+  // if (select_stmt->tables().size() != 1) {
+  //   LOG_WARN("select more than 1 tables is not supported");
+  //   rc = RC::UNIMPLENMENT;
+  //   return rc;
+  // }
   
   rc = check_select_meta(select_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("check select meta failed!");
     return rc;
   }
+  bool is_multi_table = select_stmt->tables().size() > 1;
   Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+  std::vector<Operator*> scan_ops;
   if (nullptr == scan_oper) {
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
   }
-
+  if (is_multi_table) {
+    for (int i = 0; i < select_stmt->tables().size(); i++) {
+      scan_ops.push_back(new TableScanOperator(select_stmt->tables()[i]));
+    }
+    LOG_DEBUG("table num = %d", select_stmt->tables().size());
+  }
   LOG_INFO("BEFORE DEFER ... is_aggr = %d", (int)select_stmt->is_aggregation());
-  DEFER([&] () {delete scan_oper;});
-
+  // if (!is_multi_table) {
+  //   DEFER([&] () {delete scan_oper;});
+  // } else {
+  //   for (int i = 0; i < select_stmt->tables().size(); i++) {
+  //     DEFER([&] () {delete scan_ops[i];});
+  //   }
+  // }
+  LOG_TRACE("Before initialize pred_oper");
   PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(scan_oper);
+  if (!is_multi_table) {
+    LOG_TRACE("Enter\n");
+    pred_oper.add_child(scan_oper);
+  } else {
+    LOG_TRACE("Enter\n");
+    JoinOperator* join_oper = new JoinOperator(scan_ops[0], scan_ops[1]);
+    pred_oper.add_child(join_oper);
+  }
+  LOG_TRACE("Before proj oper\n");
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
@@ -673,7 +717,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     LOG_WARN("failed to open operator");
     return rc;
   }
-
+  LOG_TRACE("Before Agg check\n");
   if (select_stmt->is_aggregation() == true) {
     rc = do_aggregation(sql_event, project_oper);
     if (rc != RC::SUCCESS) {
@@ -683,17 +727,19 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   }
 
   std::stringstream ss;
-  print_tuple_header(ss, project_oper);
+  LOG_TRACE("Before print");
+  print_tuple_header(ss, project_oper, is_multi_table);
   while ((rc = project_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
+    LOG_TRACE("Get tuple\n");
     Tuple * tuple = project_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
       break;
     }
-
+    LOG_TRACE("TO_STRING\n");
     tuple_to_string(ss, *tuple);
     ss << std::endl;
   }

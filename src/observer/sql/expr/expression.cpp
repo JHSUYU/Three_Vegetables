@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
+  LOG_TRACE("Enter\n");
   return tuple.find_cell(field_, cell);
 }
 

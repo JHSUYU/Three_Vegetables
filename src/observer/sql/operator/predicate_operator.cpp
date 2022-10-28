@@ -20,11 +20,13 @@ See the Mulan PSL v2 for more details. */
 
 RC PredicateOperator::open()
 {
+  LOG_TRACE("Enter\n");
   if (children_.size() != 1) {
     LOG_WARN("predicate operator must has one child");
     return RC::INTERNAL;
   }
-
+  LOG_TRACE("Exit\n");
+  LOG_DEBUG("children_[0] == nullptr = %d", children_[0] == nullptr);
   return children_[0]->open();
 }
 
@@ -61,7 +63,9 @@ Tuple * PredicateOperator::current_tuple()
 
 bool PredicateOperator::do_predicate(RowTuple &tuple)
 {
+  LOG_TRACE("Enter\n");
   if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
+    LOG_TRACE("Exit\n");
     return true;
   }
 
@@ -71,9 +75,10 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     CompOp comp = filter_unit->comp();
     TupleCell left_cell;
     TupleCell right_cell;
+    LOG_TRACE("Get value\n");
     left_expr->get_value(tuple, left_cell);
     right_expr->get_value(tuple, right_cell);
-
+    LOG_TRACE("Compare\n");
     const int compare = left_cell.compare(right_cell);
     bool filter_result = false;
     switch (comp) {
@@ -107,9 +112,11 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     } break;
     }
     if (!filter_result) {
+      LOG_TRACE("Exit\n");
       return false;
     }
   }
+  LOG_TRACE("Exit\n");
   return true;
 }
 

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 RC ProjectOperator::open()
 {
+  LOG_TRACE("Enter\n");
   if (children_.size() != 1) {
     LOG_WARN("project operator must has 1 child");
     return RC::INTERNAL;
@@ -30,7 +31,7 @@ RC ProjectOperator::open()
     LOG_WARN("failed to open child operator: %s", strrc(rc));
     return rc;
   }
-
+  LOG_TRACE("Exit\n");
   return RC::SUCCESS;
 }
 
@@ -46,7 +47,9 @@ RC ProjectOperator::close()
 }
 Tuple *ProjectOperator::current_tuple()
 {
+  LOG_TRACE("Enter\n");
   tuple_.set_tuple(children_[0]->current_tuple());
+  LOG_TRACE("Exit\n");
   return &tuple_;
 }
 
@@ -55,7 +58,13 @@ void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_
   // 对单表来说，展示的(alias) 字段总是字段名称，
   // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
-  spec->set_alias(field_meta->name());
+  // spec->set_alias(field_meta->name());
+  std::string table_name(table->name());
+  std::string field_name(field_meta->name());
+  std::string name = table_name + "." + field_name;
+  LOG_DEBUG("table name = %s", table->name());
+  spec->set_alias(name.c_str());
+  LOG_DEBUG("field name = %s", field_meta->name());
   tuple_.add_cell_spec(spec);
 }
 

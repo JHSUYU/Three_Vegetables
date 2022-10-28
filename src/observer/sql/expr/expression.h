@@ -56,6 +56,9 @@ public:
     return field_;
   }
 
+  void set_field(Field field) {
+    this->field_ = field;
+  }
   const Field &field() const
   {
     return field_;

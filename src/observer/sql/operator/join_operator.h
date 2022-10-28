@@ -22,17 +22,30 @@ See the Mulan PSL v2 for more details. */
 class JoinOperator : public Operator
 {
 public:
-  JoinOperator(Operator *left, Operator *right)
-  {}
+  JoinOperator(){}
+  JoinOperator(Operator *left, Operator *right): left_(left), right_(right)
+  {
 
-  virtual ~JoinOperator() = default;
+  }
+
+  ~JoinOperator() {
+    delete &merged_tuple_->record();
+    delete merged_tuple_;
+  }
 
   RC open() override;
   RC next() override;
   RC close() override;
+  Tuple *current_tuple() override;
 
 private:
+
+  RC merge_tuple(Tuple* left, Tuple* right);
+
   Operator *left_ = nullptr;
   Operator *right_ = nullptr;
   bool round_done_ = true;
+
+  RowTuple *merged_tuple_;
+  int next_cnt = 0;
 };
