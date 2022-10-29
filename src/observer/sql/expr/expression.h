@@ -32,6 +32,8 @@ class Expression
 public: 
   Expression() = default;
   virtual ~Expression() = default;
+
+  Expression(const Expression& expr);
   
   virtual RC get_value(const Tuple &tuple, TupleCell &cell) const = 0;
   virtual ExprType type() const = 0;

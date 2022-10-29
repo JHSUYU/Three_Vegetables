@@ -149,6 +149,8 @@ public:
       std::string t(field.table_name());
       std::string f(field.field_name());
       std::string cmp = t + "." + f;
+      LOG_DEBUG("cmp = %s", cmp.c_str());
+      // field.table_name(), field.field_name());
       if (alias == cmp) {
         LOG_DEBUG("Matched Field. field_name = %s. field.field_name() = %s\n", 
         field_name, field.field_name());

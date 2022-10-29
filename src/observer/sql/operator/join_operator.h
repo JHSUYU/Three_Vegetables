@@ -47,5 +47,8 @@ private:
   bool round_done_ = true;
 
   RowTuple *merged_tuple_;
+  
   int next_cnt = 0;
+
+  Table* tmp_table_;
 };

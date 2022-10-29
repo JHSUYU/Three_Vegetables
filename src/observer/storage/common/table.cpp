@@ -121,6 +121,10 @@ RC Table::create(const char *path, const char *name, const char *base_dir, int a
   return rc;
 }
 
+RC Table::create_tmp_table(std::string name) {
+  table_meta_.set_name(name);
+  return RC::SUCCESS;
+}
 
 RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_manager)
 {

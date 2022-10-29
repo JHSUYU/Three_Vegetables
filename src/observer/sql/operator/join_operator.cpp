@@ -109,12 +109,88 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     const TupleCellSpec* left_cell_spec;
     const TupleCellSpec* right_cell_spec;
     RC rc = RC::SUCCESS;
-    LOG_TRACE("Enter\n");
+
     rc = left_row_tuple->cell_spec_at(1, left_cell_spec);
     rc = right_row_tuple->cell_spec_at(1, right_cell_spec);
 
     int left_record_size = ((FieldExpr*)(left_cell_spec->expression()))->field().table()->table_meta().record_size();
     int right_record_size = ((FieldExpr*)(right_cell_spec->expression()))->field().table()->table_meta().record_size();
+
+    if (next_cnt == 1) {
+        rc = left_row_tuple->cell_spec_at(1, left_cell_spec);
+        const TupleCellSpec* tsp_left = left_cell_spec;
+        FieldExpr* expr = (FieldExpr*)tsp_left->expression();
+        std::string table_name_left(expr->table_name());
+        rc = right_row_tuple->cell_spec_at(1, right_cell_spec);
+        const TupleCellSpec* tsp_right = right_cell_spec;
+        expr = (FieldExpr*)tsp_right->expression();
+        std::string table_name_right(expr->table_name());
+        tmp_table_ = new Table();
+        std::string table_name = table_name_left + "_" + table_name_right;
+        tmp_table_->create_tmp_table(table_name);
+        std::vector<FieldMeta> fields;
+
+        for (int i = 0; i < left_num; i++) {
+            rc = left_row_tuple->cell_spec_at(i, left_cell_spec);
+            // LOG_DEBUG("left_cell_spec alias len = %d", left_cell_spec->alias().size());
+            // merged_tuple_->add_spec(left_cell_spec);
+            // LOG_DEBUG("left_cell_spec alias len = %d", left_cell_spec->alias().size());
+            TupleCellSpec* tsp = const_cast<TupleCellSpec*>(left_cell_spec);
+            FieldExpr* expr = (FieldExpr*)tsp->expression();
+            const FieldMeta* meta = expr->field().meta();
+            std::string origin_table_name(expr->field().table_name());
+            std::string field_name(expr->field().field_name());
+            std::string alias_name = origin_table_name + "." + field_name;
+            LOG_TRACE("alias name = %s", alias_name.c_str());
+            FieldMeta* new_field = new FieldMeta();
+            new_field->init(expr->field().field_name(), expr->field().attr_type(), 
+            meta->offset(), meta->len(), meta->visible());
+            FieldExpr* new_expr = new FieldExpr(tmp_table_, new_field);
+            new_expr->field().set_origin_table_name(origin_table_name);
+            LOG_TRACE("FieldExpr field's table name = %s", new_expr->field().table_name());
+            TupleCellSpec* new_tsp = new TupleCellSpec(new_expr);
+            new_tsp->set_alias(alias_name.c_str());
+            merged_tuple_->add_spec(new_tsp);
+            fields.push_back(*new_field);
+        }
+        // tmp_table_->
+
+        // shift
+        for (int i = 0; i < right_num; i++) {
+            rc = right_row_tuple->cell_spec_at(i, right_cell_spec);
+            // LOG_DEBUG("right_cell_spec alias len = %d", right_cell_spec->alias().size());
+            // FieldExpr* expr = (FieldExpr*)(right_cell_spec->expression());
+            // const FieldMeta* meta = expr->field().meta();
+            // FieldMeta* new_meta = new FieldMeta();
+            // new_meta->set_offset(meta->offset() + left_record_size);
+            // // LOG_DEBUG("meta->offset() + left_record_size = %d", new_meta->offset());
+            // Field* new_field = new Field(expr->field().table(), new_meta);
+            // FieldExpr* new_expr = new FieldExpr();
+            // new_expr->set_field(*new_field);
+            // TupleCellSpec* tsp = new TupleCellSpec(new_expr);
+            // std::string table_name(expr->table_name());
+            // std::string field_name(expr->field().field_name());
+            // std::string alias_name = table_name + "." + field_name;
+            // tsp->set_alias(alias_name.c_str());
+            // merged_tuple_->add_spec(tsp);
+            TupleCellSpec* tsp = const_cast<TupleCellSpec*>(right_cell_spec);
+            FieldExpr* expr = (FieldExpr*)tsp->expression();
+            const FieldMeta* meta = expr->field().meta();
+            std::string origin_table_name(expr->field().table_name());
+            std::string field_name(expr->field().field_name());
+            std::string alias_name = table_name + "." + field_name;
+            FieldMeta* new_field = new FieldMeta();
+            new_field->init(expr->field().field_name(), expr->field().attr_type(), 
+            meta->offset() + left_record_size, meta->len(), meta->visible());
+            FieldExpr* new_expr = new FieldExpr(tmp_table_, new_field);
+            new_expr->field().set_origin_table_name(origin_table_name);
+            TupleCellSpec* new_tsp = new TupleCellSpec(new_expr);
+            new_tsp->set_alias(alias_name.c_str());
+            merged_tuple_->add_spec(new_tsp);
+            fields.push_back(*new_field);
+        }
+        tmp_table_->get_meta().add_field_metas(fields);
+    } 
     LOG_TRACE("Enter\n");
     
     char* record_data = new char[left_record_size + right_record_size];
@@ -122,9 +198,6 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     LOG_TRACE("Enter\n");
     
     char* left_data = left_row_tuple->record().data();
-    for (int i = 0; i < left_record_size; i++) {
-        LOG_DEBUG("left_data = %d", left_data[i]);
-    }
     LOG_TRACE("Enter\n");
     LOG_DEBUG("left_record_size = %d", left_record_size);
     memcpy(record_data, left_data, left_record_size);
@@ -145,49 +218,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     // }
     Record &record = merged_tuple_->record();
     record.set_data(record_data);
-    for (int i = 0; i < left_num; i++) {
-        rc = left_row_tuple->cell_spec_at(i, left_cell_spec);
-        // LOG_DEBUG("left_cell_spec alias len = %d", left_cell_spec->alias().size());
-        // merged_tuple_->add_spec(left_cell_spec);
-        // LOG_DEBUG("left_cell_spec alias len = %d", left_cell_spec->alias().size());
-        TupleCellSpec* tsp = const_cast<TupleCellSpec*>(left_cell_spec);
-        FieldExpr* expr = (FieldExpr*)tsp->expression();
-        std::string table_name(expr->table_name());
-        std::string field_name(expr->field().field_name());
-        std::string alias_name = table_name + "." + field_name;
-        tsp->set_alias(alias_name.c_str());
-        merged_tuple_->add_spec(left_cell_spec);
-    } 
-    // shift
-    for (int i = 0; i < right_num; i++) {
-        rc = right_row_tuple->cell_spec_at(i, right_cell_spec);
-        // LOG_DEBUG("right_cell_spec alias len = %d", right_cell_spec->alias().size());
-        // FieldExpr* expr = (FieldExpr*)(right_cell_spec->expression());
-        // const FieldMeta* meta = expr->field().meta();
-        // FieldMeta* new_meta = new FieldMeta();
-        // new_meta->set_offset(meta->offset() + left_record_size);
-        // // LOG_DEBUG("meta->offset() + left_record_size = %d", new_meta->offset());
-        // Field* new_field = new Field(expr->field().table(), new_meta);
-        // FieldExpr* new_expr = new FieldExpr();
-        // new_expr->set_field(*new_field);
-        // TupleCellSpec* tsp = new TupleCellSpec(new_expr);
-        // std::string table_name(expr->table_name());
-        // std::string field_name(expr->field().field_name());
-        // std::string alias_name = table_name + "." + field_name;
-        // tsp->set_alias(alias_name.c_str());
-        // merged_tuple_->add_spec(tsp);
-        TupleCellSpec* tsp = const_cast<TupleCellSpec*>(right_cell_spec);
-        FieldExpr* expr = (FieldExpr*)tsp->expression();
-        std::string table_name(expr->table_name());
-        std::string field_name(expr->field().field_name());
-        std::string alias_name = table_name + "." + field_name;
-        tsp->set_alias(alias_name.c_str());
-        FieldMeta* meta = const_cast<FieldMeta*>(expr->field().meta());
-        if (next_cnt == 1) {
-            meta->set_offset(meta->offset() + left_record_size);
-        }
-        merged_tuple_->add_spec(right_cell_spec);
-    }
+    tmp_table_->get_meta_for_modify().set_record_size(left_record_size + right_record_size);
     LOG_TRACE("Exit\n");
     return rc;
 } 

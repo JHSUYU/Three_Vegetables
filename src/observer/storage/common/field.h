@@ -32,7 +32,12 @@ public:
     return field_->type();
   }
 
-  const char *table_name() const { return table_->name(); }
+  const char *table_name() const { 
+    if (origin_table_name_.size() > 0) {
+      return origin_table_name_.c_str();
+    }
+    return table_->name(); 
+    }
   const char *field_name() const { return field_->name(); }
 
   void set_table(const Table *table)
@@ -43,7 +48,13 @@ public:
   {
     this->field_ = field;
   }
+  
+  void set_origin_table_name(std::string table_name) {
+    origin_table_name_ = table_name;
+  }
 private:
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
+
+  std::string origin_table_name_;
 };

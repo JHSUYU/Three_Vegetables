@@ -43,6 +43,10 @@ public:
   const FieldMeta *field(const char *name) const;
   const FieldMeta *find_field_by_offset(int offset) const;
   const std::vector<FieldMeta> *field_metas() const { return &fields_; }
+  // hsy add
+  void set_name(std::string name);
+  void set_record_size(int size);
+  void add_field_metas(std::vector<FieldMeta> metas);
   int field_num() const; // sys field included
   int sys_field_num() const;
 

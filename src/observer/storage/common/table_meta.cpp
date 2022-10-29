@@ -109,12 +109,16 @@ const char *TableMeta::name() const
 {
   return name_.c_str();
 }
-
+void TableMeta::set_name(std::string name) {
+  this->name_ = name;
+}
+void TableMeta::set_record_size(int size) {
+  this->record_size_ = size;
+}
 const FieldMeta *TableMeta::trx_field() const
 {
   return &fields_[0];
 }
-
 const FieldMeta *TableMeta::field(int index) const
 {
   return &fields_[index];
@@ -333,4 +337,10 @@ void TableMeta::desc(std::ostream &os) const
     os << std::endl;
   }
   os << ')' << std::endl;
+}
+
+void TableMeta::add_field_metas(std::vector<FieldMeta> metas) {
+   for (FieldMeta meta: metas) {
+    this->fields_.push_back(meta);
+   }
 }

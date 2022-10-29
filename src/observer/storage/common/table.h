@@ -48,7 +48,7 @@ public:
    */
   RC create(const char *path, const char *name, const char *base_dir, int attribute_count, const AttrInfo attributes[],
       CLogManager *clog_manager);
-
+  RC create_tmp_table(std::string name);
   /**
    * 打开一个表
    * @param meta_file 保存表元数据的文件完整路径
@@ -89,7 +89,9 @@ public:
   const char *name() const;
 
   const TableMeta &table_meta() const;
-
+  TableMeta& get_meta_for_modify() {
+    return this->table_meta_;
+  }
   RC sync();
 
 public:
@@ -97,6 +99,12 @@ public:
   RC commit_delete(Trx *trx, const RID &rid);
   RC rollback_insert(Trx *trx, const RID &rid);
   RC rollback_delete(Trx *trx, const RID &rid);
+
+  // hsy add
+  TableMeta& get_meta() {
+    return table_meta_;
+  }
+
 
 private:
   RC scan_record(
@@ -106,7 +114,7 @@ private:
   IndexScanner *find_index_for_scan(const ConditionFilter *filter);
   IndexScanner *find_index_for_scan(const DefaultConditionFilter &filter);
   RC insert_record(Trx *trx, Record *record);
-
+  
 public:
   RC recover_insert_record(Record *record);
 
