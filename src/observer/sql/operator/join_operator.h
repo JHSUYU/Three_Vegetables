@@ -31,6 +31,7 @@ public:
   ~JoinOperator() {
     delete &merged_tuple_->record();
     delete merged_tuple_;
+    delete tmp_table_; 
   }
 
   RC open() override;
