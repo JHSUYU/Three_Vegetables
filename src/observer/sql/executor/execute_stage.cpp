@@ -707,6 +707,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   //   }
   // }
   LOG_TRACE("Before initialize pred_oper");
+  std::vector<JoinOperator*> join_oper_list;
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   if (!is_multi_table) {
     LOG_TRACE("Enter\n");
@@ -716,11 +717,13 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     
     JoinOperator* join_oper = new JoinOperator(scan_ops[0], 
     scan_ops[1]);
+    join_oper_list.push_back(join_oper);
     JoinOperator* final_join_oper = join_oper;
     for (int i = 2; i < select_stmt->tables().size(); i++) {
       JoinOperator *new_join = new JoinOperator(join_oper, scan_ops[i]);
       final_join_oper = new_join;
       join_oper = final_join_oper;
+      join_oper_list.push_back(new_join);
     }
     
     pred_oper.add_child(final_join_oper);
@@ -769,6 +772,12 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     project_oper.close();
   } else {
     rc = project_oper.close();
+  }
+  for (int i = 0; i < join_oper_list.size(); i++) {
+    if (join_oper_list[i] != nullptr) {
+      delete join_oper_list[i];
+    }
+    
   }
   session_event->set_response(ss.str());
   return rc;

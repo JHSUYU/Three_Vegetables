@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <vector>
+
 #include "sql/parser/parse.h"
 #include "sql/operator/operator.h"
 #include "rc.h"
@@ -29,8 +31,13 @@ public:
   }
 
   ~JoinOperator() {
+    delete merged_tuple_->record().data();
     delete &merged_tuple_->record();
     delete merged_tuple_;
+    // const std::vector<FieldMeta> *metas = tmp_table_->table_meta().field_metas();
+    // for (int i = 0; i < metas->size(); i++) {
+    //   delete &metas[i];
+    // }
     delete tmp_table_; 
   }
 
