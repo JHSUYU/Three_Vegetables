@@ -217,6 +217,9 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     //     LOG_DEBUG("record_data = %d", record_data[i]);
     // }
     Record &record = merged_tuple_->record();
+    if (record.data() != nullptr) {
+        delete record.data();
+    }
     record.set_data(record_data);
     tmp_table_->get_meta_for_modify().set_record_size(left_record_size + right_record_size);
     LOG_TRACE("Exit\n");
