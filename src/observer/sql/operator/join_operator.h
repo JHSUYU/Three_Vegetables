@@ -31,8 +31,11 @@ public:
   }
 
   ~JoinOperator() {
-    delete merged_tuple_->record().data();
-    delete &merged_tuple_->record();
+    if (merged_tuple_->record().data() != nullptr) {
+      delete merged_tuple_->record().data();
+    }
+    
+    delete &(merged_tuple_->record());
     delete merged_tuple_;
     // const std::vector<FieldMeta> *metas = tmp_table_->table_meta().field_metas();
     // for (int i = 0; i < metas->size(); i++) {
