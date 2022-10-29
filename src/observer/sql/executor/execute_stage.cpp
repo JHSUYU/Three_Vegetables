@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 
@@ -683,8 +684,17 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
   }
   if (is_multi_table) {
+    std::vector<Table*> tables;
+    for (Table* t: select_stmt->tables()) {
+      tables.push_back(t);
+    }
+    reverse(tables.begin(), tables.end());
+    for(int i = 0; i < tables.size(); i++) {
+      LOG_DEBUG("table_name = %s", tables[i]->name());
+    }
     for (int i = 0; i < select_stmt->tables().size(); i++) {
-      scan_ops.push_back(new TableScanOperator(select_stmt->tables()[i]));
+      scan_ops.push_back(new TableScanOperator(tables[i]));
+      // LOG_DEBUG("table_name = %s", tables[i]->name());
     }
     LOG_DEBUG("table num = %d", select_stmt->tables().size());
   }
@@ -703,7 +713,9 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     pred_oper.add_child(scan_oper);
   } else {
     LOG_TRACE("Enter\n");
-    JoinOperator* join_oper = new JoinOperator(scan_ops[0], scan_ops[1]);
+    
+    JoinOperator* join_oper = new JoinOperator(scan_ops[0], 
+    scan_ops[1]);
     JoinOperator* final_join_oper = join_oper;
     for (int i = 2; i < select_stmt->tables().size(); i++) {
       JoinOperator *new_join = new JoinOperator(join_oper, scan_ops[i]);
@@ -717,6 +729,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
   for (const Field &field : select_stmt->query_fields()) {
+    LOG_DEBUG("field_table_name = %s", field.table_name());
     project_oper.add_projection(field.table(), field.meta());
   }
   rc = project_oper.open();

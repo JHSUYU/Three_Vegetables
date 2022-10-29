@@ -71,6 +71,8 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     const RelAttr &relation_attr = select_sql.attributes[i];
 
     if (common::is_blank(relation_attr.relation_name) && 0 == strcmp(relation_attr.attribute_name, "*")) {
+      reverse(tables.begin(), tables.end());
+      // std::cout << "reversed" << std::endl;
       for (Table *table : tables) {
         wildcard_fields(table, query_fields);
       }
@@ -86,6 +88,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
           LOG_WARN("invalid field name while table is *. attr=%s", field_name);
           return RC::SCHEMA_FIELD_MISSING;
         }
+        
         for (Table *table : tables) {
           wildcard_fields(table, query_fields);
         }
