@@ -113,6 +113,7 @@ public:
 
 private:
   friend class RecordUpdater;
+  friend class MultiRecordUpdater;
   friend class RecordDeleter;
 
   RC insert_entry_of_indexes(const char *record, const RID &rid);

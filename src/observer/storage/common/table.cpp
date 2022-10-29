@@ -1098,13 +1098,15 @@ public:
     char *data = record->data();
     for (int i = 0; i < attribute_num_; i++) {
       LOG_INFO("We have %d attributes",attribute_num_);
-      const FieldMeta *field_meta = table_.table_meta().field(attribute_names_[i]);
+      LOG_INFO("The attribute we want to update is %s",attribute_names_[i]);
+      const FieldMeta *field_meta = table_.table_meta_.field(attribute_names_[i]);
       int offset = field_meta->offset();
       // table_.make_record(values_num, values, new_record);
       // record->set_data(new_record);
       size_t copy_len = field_meta->len();
       if (field_meta->type() == CHARS) {
-        const size_t data_len = strlen((const char *)value_->data);
+        LOG_INFO("The attribute type is chars");
+        const size_t data_len = strlen((const char *)value_list_[i]->data);
         if (copy_len > data_len) {
           copy_len = data_len + 1;
         }
