@@ -82,16 +82,22 @@ RC JoinOperator::close()
 {
     LOG_TRACE("Enter\n");
     RC rc = RC::SUCCESS;
-    rc = left_->close();
+    if (left_ != nullptr) {
+        rc = left_->close();
+    }
+    
     if (rc != RC::SUCCESS) {
         LOG_WARN("close left failed");
         return rc;
     }
-    rc = right_->close();
+    if (right_ != nullptr) {
+        rc = right_->close();
+    }
     if (rc != RC::SUCCESS) {
         LOG_WARN("close right failed");
         return rc;
     }
+    LOG_TRACE("Exit\n");
     return RC::SUCCESS;
 }
 
@@ -219,6 +225,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     Record &record = merged_tuple_->record();
     if (record.data() != nullptr) {
         delete record.data();
+        record.set_data(nullptr);
     }
     record.set_data(record_data);
     tmp_table_->get_meta_for_modify().set_record_size(left_record_size + right_record_size);
