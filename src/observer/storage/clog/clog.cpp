@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "clog.h"
 
 #define CLOG_INS_REC_NODATA_SIZE (sizeof(CLogInsertRecord) - sizeof(char *))
+#define CLOG_UPD_REC_NODATA_SIZE (sizeof(CLogUpdateRecord) - sizeof(char *))
 const char *CLOG_FILE_NAME = "clog";
 
 int _align8(int size)
@@ -48,6 +49,21 @@ CLogRecord::CLogRecord(CLogType flag, int32_t trx_id, const char *table_name /* 
         log_record_.ins.data_len_ = data_len;
         log_record_.ins.hdr_.logrec_len_ = _align8(CLOG_INS_REC_NODATA_SIZE + data_len);
         log_record_.ins.data_ = new char[log_record_.ins.hdr_.logrec_len_ - CLOG_INS_REC_NODATA_SIZE];
+        memcpy(log_record_.ins.data_, rec->data(), data_len);
+        log_record_.ins.hdr_.lsn_ = CLogManager::get_next_lsn(log_record_.ins.hdr_.logrec_len_);
+      }
+    } break;
+    case REDO_UPDATE: {
+      if (!rec || !rec->data()) {
+        LOG_ERROR("Record is null");
+      } else {
+        log_record_.ins.hdr_.trx_id_ = trx_id;
+        log_record_.ins.hdr_.type_ = flag;
+        strcpy(log_record_.ins.table_name_, table_name);
+        log_record_.ins.rid_ = rec->rid();
+        log_record_.ins.data_len_ = data_len;
+        log_record_.ins.hdr_.logrec_len_ = _align8(CLOG_UPD_REC_NODATA_SIZE + data_len);
+        log_record_.ins.data_ = new char[log_record_.ins.hdr_.logrec_len_ - CLOG_UPD_REC_NODATA_SIZE];
         memcpy(log_record_.ins.data_, rec->data(), data_len);
         log_record_.ins.hdr_.lsn_ = CLogManager::get_next_lsn(log_record_.ins.hdr_.logrec_len_);
       }
@@ -91,6 +107,18 @@ CLogRecord::CLogRecord(char *data)
       log_record_.ins.data_ = new char[log_record_.ins.hdr_.logrec_len_ - CLOG_INS_REC_NODATA_SIZE];
       memcpy(log_record_.ins.data_, data, log_record_.ins.data_len_);
     } break;
+    case REDO_UPDATE: {
+      log_record_.ins.hdr_ = *hdr;
+      data += sizeof(CLogRecordHeader);
+      strcpy(log_record_.ins.table_name_, data);
+      data += TABLE_NAME_MAX_LEN;
+      log_record_.ins.rid_ = *(RID *)data;
+      data += sizeof(RID);
+      log_record_.ins.data_len_ = *(int *)data;
+      data += sizeof(int);
+      log_record_.ins.data_ = new char[log_record_.ins.hdr_.logrec_len_ - CLOG_UPD_REC_NODATA_SIZE];
+      memcpy(log_record_.ins.data_, data, log_record_.ins.data_len_);
+    } break;
     case REDO_DELETE: {
       log_record_.del.hdr_ = *hdr;
       data += sizeof(CLogRecordHeader);
@@ -108,6 +136,8 @@ CLogRecord::~CLogRecord()
 {
   if (REDO_INSERT == flag_) {
     delete[] log_record_.ins.data_;
+  } else if (REDO_UPDATE == flag_) {
+    delete[] log_record_.upd.data_;
   }
 }
 
@@ -116,18 +146,21 @@ RC CLogRecord::copy_record(void *dest, int start_off, int copy_len)
   CLogRecords *log_rec = &log_record_;
   if (start_off + copy_len > get_logrec_len()) {
     return RC::GENERIC_ERROR;
-  } else if (flag_ != REDO_INSERT) {
+  } else if (flag_ != REDO_INSERT && flag_ != REDO_UPDATE) {
     memcpy(dest, (char *)log_rec + start_off, copy_len);
   } else {
-    if (start_off > CLOG_INS_REC_NODATA_SIZE) {
-      memcpy(dest, log_rec->ins.data_ + start_off - CLOG_INS_REC_NODATA_SIZE, copy_len);
-    } else if (start_off + copy_len <= CLOG_INS_REC_NODATA_SIZE) {
+    int NODATA_SIZE = 0;
+    if (flag_ == REDO_INSERT) NODATA_SIZE = CLOG_INS_REC_NODATA_SIZE;
+    else NODATA_SIZE = CLOG_UPD_REC_NODATA_SIZE;
+    if (start_off > NODATA_SIZE) {
+      memcpy(dest, log_rec->ins.data_ + start_off - NODATA_SIZE, copy_len);
+    } else if (start_off + copy_len <= NODATA_SIZE) {
       memcpy(dest, (char *)log_rec + start_off, copy_len);
     } else {
-      memcpy(dest, (char *)log_rec + start_off, CLOG_INS_REC_NODATA_SIZE - start_off);
-      memcpy((char *)dest + CLOG_INS_REC_NODATA_SIZE - start_off,
+      memcpy(dest, (char *)log_rec + start_off, NODATA_SIZE - start_off);
+      memcpy((char *)dest + NODATA_SIZE - start_off,
           log_rec->ins.data_,
-          copy_len - (CLOG_INS_REC_NODATA_SIZE - start_off));
+          copy_len - (NODATA_SIZE - start_off));
     }
   }
   return RC::SUCCESS;
@@ -144,6 +177,8 @@ int CLogRecord::cmp_eq(CLogRecord *other)
         return log_record_.mtr == other_logrec->mtr;
       case REDO_INSERT:
         return log_record_.ins == other_logrec->ins;
+      case REDO_UPDATE:
+        return log_record_.upd == other_logrec->upd;
       case REDO_DELETE:
         return log_record_.del == other_logrec->del;
       default:

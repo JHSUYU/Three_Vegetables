@@ -237,6 +237,7 @@ RC Table::destroy(const char *base_dir)
 }
 RC Table::commit_insert(Trx *trx, const RID &rid)
 {
+  LOG_WARN("COMMIT_INSERT!!!!");
   Record record;
   RC rc = record_handler_->get_record(&rid, &record);
   if (rc != RC::SUCCESS) {
@@ -249,7 +250,7 @@ RC Table::commit_insert(Trx *trx, const RID &rid)
 
 RC Table::rollback_insert(Trx *trx, const RID &rid)
 {
-
+  LOG_WARN("rollback insert!!!!!!!");
   Record record;
   RC rc = record_handler_->get_record(&rid, &record);
   if (rc != RC::SUCCESS) {
@@ -274,7 +275,7 @@ RC Table::rollback_insert(Trx *trx, const RID &rid)
 
 RC Table::insert_record(Trx *trx, Record *record)
 {
-  LOG_TRACE("Enter\n");
+  LOG_INFO("TABLE::INSERT_RECORD");
   RC rc = RC::SUCCESS;
 
   if (trx != nullptr) {
@@ -346,6 +347,19 @@ RC Table::recover_insert_record(Record *record)
   rc = record_handler_->recover_insert_record(record->data(), table_meta_.record_size(), &record->rid());
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+    return rc;
+  }
+
+  return rc;
+}
+
+RC Table::recover_update_record(Record *record)
+{
+  RC rc = RC::SUCCESS;
+
+  rc = record_handler_->update_record(record);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Update record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
     return rc;
   }
 
@@ -1109,7 +1123,7 @@ RC Table::update_record(Trx *trx, Record *record /* old record in the page, shou
     rc = trx->update_record(this, record);
   } else {
     LOG_TRACE("Enter\n");
-    rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+    rc = update_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commi_delete
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to update indexes of record (rid=%d.%d). rc=%d:%s",
           record->rid().page_num,
@@ -1121,7 +1135,22 @@ RC Table::update_record(Trx *trx, Record *record /* old record in the page, shou
       rc = record_handler_->update_record(record);
     }
   }
-  return rc;
+
+  // if (trx != nullptr) {
+  //   // rc = trx->delete_record(this, record);
+
+  //   CLogRecord *clog_record = nullptr;
+  //   rc = clog_manager_->clog_gen_record(CLogType::REDO_UPDATE, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), record);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+  //     return rc;
+  //   }
+  //   rc = clog_manager_->clog_append_record(clog_record);
+  //   if (rc != RC::SUCCESS) {
+  //     return rc;
+  //   }
+  // }
+  // return rc;
 }
 class RecordDeleter {
 public:
@@ -1169,7 +1198,7 @@ RC Table::delete_record(Trx *trx, Record *record)
 {
   RC rc = RC::SUCCESS;
 
-  rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+  rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commi_delete
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
         record->rid().page_num,

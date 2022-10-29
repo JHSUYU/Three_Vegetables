@@ -169,6 +169,7 @@ void Trx::delete_operation(Table *table, const RID &rid)
 
 RC Trx::commit()
 {
+  LOG_WARN("TRX COMMIT!!!!!!");
   RC rc = RC::SUCCESS;
   for (const auto &table_operations : operations_) {
     Table *table = table_operations.first;
@@ -196,6 +197,14 @@ RC Trx::commit()
                 "Failed to commit delete operation. rid=%d.%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
           }
         } break;
+        // case Operation::Type::UPDATE: {
+        //   rc = table->commit_update(this, rid);
+        //   if (rc != RC::SUCCESS) {
+        //     // handle rc
+        //     LOG_ERROR(
+        //         "Failed to commit update operation. rid=%d.%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
+        //   }
+        // }
         default: {
           LOG_PANIC("Unknown operation. type=%d", (int)operation.type());
         } break;
@@ -210,6 +219,7 @@ RC Trx::commit()
 
 RC Trx::rollback()
 {
+  LOG_WARN("start rollback() ... ");
   RC rc = RC::SUCCESS;
   for (const auto &table_operations : operations_) {
     Table *table = table_operations.first;
@@ -229,6 +239,14 @@ RC Trx::rollback()
                 "Failed to rollback insert operation. rid=%d.%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
           }
         } break;
+        // case Operation::Type::UPDATE: {
+        //   rc = table->rollback_update(this, rid);
+        //   if (rc != RC::SUCCESS) {
+        //     // handle rc
+        //     LOG_ERROR(
+        //         "Failed to rollback update operation. rid=%d.%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
+        //   }
+        // } break;
         case Operation::Type::DELETE: {
           rc = table->rollback_delete(this, rid);
           if (rc != RC::SUCCESS) {
