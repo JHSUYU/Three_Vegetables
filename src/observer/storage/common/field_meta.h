@@ -1,3 +1,11 @@
+/*
+ * @Author: 181830014 181830014@smail.nju.edu.cn
+ * @Date: 2022-10-21 17:50:56
+ * @LastEditors: 181830014 181830014@smail.nju.edu.cn
+ * @LastEditTime: 2022-10-29 22:48:45
+ * @FilePath: /source/ocean/src/observer/storage/common/field_meta.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 /* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
 You can use this software according to the terms and conditions of the Mulan PSL v2.
@@ -30,7 +38,7 @@ public:
   FieldMeta();
   ~FieldMeta() = default;
 
-  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible);
+  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, bool nullable);
 
 public:
   const char *name() const;
@@ -38,6 +46,7 @@ public:
   int offset() const;
   int len() const;
   bool visible() const;
+  bool nullable() const;
 
 public:
   void desc(std::ostream &os) const;
@@ -52,5 +61,6 @@ protected:
   int attr_offset_;
   int attr_len_;
   bool visible_;
+  bool nullable_;
 };
 #endif  // __OBSERVER_STORAGE_COMMON_FIELD_META_H__

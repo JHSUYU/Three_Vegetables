@@ -113,6 +113,8 @@ ParserContext *get_context(yyscan_t scanner)
 		COUNT
 		COUNTALLXING
 		COUNTALL1
+		NULL_
+		NULLABLE
 
 %union {
   struct _Attr *attr;
@@ -277,26 +279,34 @@ attr_def_list:
     ;
     
 attr_def:
-    ID_get type LBRACE number RBRACE 
+	ID_get type LBRACE number RBRACE
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, $4);
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, false);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name =(char*)malloc(sizeof(char));
-			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type = $2;  
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length = $4;
 			CONTEXT->value_length++;
 		}
     |ID_get type
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, 4);
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, false);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name=(char*)malloc(sizeof(char));
-			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type=$2;  
-			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length=4; // default attribute length
+			// default attribute length
+			CONTEXT->value_length++;
+		}
+    |ID_get type LBRACE number RBRACE NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, true);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, true);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			// default attribute length
 			CONTEXT->value_length++;
 		}
     ;
@@ -359,6 +369,9 @@ value:
 			$1 = substr($1,1,strlen($1)-2);
   			value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
+	|NULL_ {
+		value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+		}
     ;
     
 delete:		/*  delete 语句的语法解析树*/
@@ -408,7 +421,7 @@ select_attr:
 		}
 	| STAR attr_list{
 			RelAttr attr;
-			relation_attr_init(&attr,NULL,"*");
+			relation_attr_init(&attr, NULL, "*");
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 
 		}

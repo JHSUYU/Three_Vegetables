@@ -106,13 +106,15 @@ extern int yydebug;
     COUNT = 307,                   /* COUNT  */
     COUNTALLXING = 308,            /* COUNTALLXING  */
     COUNTALL1 = 309,               /* COUNTALL1  */
-    NUMBER = 310,                  /* NUMBER  */
-    FLOAT = 311,                   /* FLOAT  */
-    ID = 312,                      /* ID  */
-    PATH = 313,                    /* PATH  */
-    SSS = 314,                     /* SSS  */
-    STAR = 315,                    /* STAR  */
-    STRING_V = 316                 /* STRING_V  */
+    NULL_ = 310,                   /* NULL_  */
+    NULLABLE = 311,                /* NULLABLE  */
+    NUMBER = 312,                  /* NUMBER  */
+    FLOAT = 313,                   /* FLOAT  */
+    ID = 314,                      /* ID  */
+    PATH = 315,                    /* PATH  */
+    SSS = 316,                     /* SSS  */
+    STAR = 317,                    /* STAR  */
+    STRING_V = 318                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -172,19 +174,21 @@ extern int yydebug;
 #define COUNT 307
 #define COUNTALLXING 308
 #define COUNTALL1 309
-#define NUMBER 310
-#define FLOAT 311
-#define ID 312
-#define PATH 313
-#define SSS 314
-#define STAR 315
-#define STRING_V 316
+#define NULL_ 310
+#define NULLABLE 311
+#define NUMBER 312
+#define FLOAT 313
+#define ID 314
+#define PATH 315
+#define SSS 316
+#define STAR 317
+#define STRING_V 318
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 117 "yacc_sql.y"
+#line 119 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -194,7 +198,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 198 "y.tab.h"
+#line 202 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

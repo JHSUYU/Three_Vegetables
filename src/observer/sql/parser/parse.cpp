@@ -58,6 +58,10 @@ void value_init_string(Value *value, const char *v)
   value->type = CHARS;
   value->data = strdup(v);
 }
+void value_init_null(Value *value) {
+  value->type = NULLTYPE;
+  value->data = nullptr;
+}
 
 // int value_init_date(Value* value, int* res, const char* v) {
 //     LOG_TRACE("Enter\n");
@@ -116,11 +120,12 @@ void condition_destroy(Condition *condition)
   }
 }
 
-void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length)
+void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length, bool nullable)
 {
   attr_info->name = strdup(name);
   attr_info->type = type;
   attr_info->length = length;
+  attr_info->nullable = nullable;
 }
 void attr_info_destroy(AttrInfo *attr_info)
 {
