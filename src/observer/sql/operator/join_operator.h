@@ -42,10 +42,14 @@ public:
       delete merged_tuple_;
       merged_tuple_ = nullptr;
     }
-    // const std::vector<FieldMeta> *metas = tmp_table_->table_meta().field_metas();
-    // for (int i = 0; i < metas->size(); i++) {
-    //   delete &metas[i];
-    // }
+    if (tmp_table_ != nullptr) {
+      const std::vector<FieldMeta> *metas = tmp_table_->table_meta().field_metas();
+      if (metas != nullptr) {
+        for (int i = 0; i < metas->size(); i++) {
+          delete &metas[i];
+        }
+      }
+    }
     if (tmp_table_ != nullptr) {
       delete tmp_table_; 
       tmp_table_ = nullptr;
