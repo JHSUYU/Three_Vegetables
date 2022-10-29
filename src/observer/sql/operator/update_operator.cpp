@@ -33,14 +33,23 @@ RC UpdateOperator::open()
 
     Record &record = row_tuple->record();
     int update_count = 0;
-    rc = table->update_record(nullptr, update_stmt_->attribute_name(), update_stmt_->values(),
-    update_stmt_->value_amount(), update_stmt_->conditions(), &update_count);
+    char** attribute_names=update_stmt_->attribute_names;
+    Value** values_list= update_stmt_->values_list;
+    rc = table->update_multi_record(nullptr,
+        attribute_names,
+        update_stmt_->attribute_num,
+        values_list,
+        update_stmt_->value_num,
+        update_stmt_->value_amount(),
+        update_stmt_->conditions(),
+        &update_count);
+
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to update record: %s", strrc(rc));
       return rc;
     }
-    if(update_count == 0) {
-        return rc;
+    if (update_count == 0) {
+      return rc;
     }
   }
   return RC::SUCCESS;

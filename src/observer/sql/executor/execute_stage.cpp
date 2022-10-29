@@ -49,8 +49,8 @@ See the Mulan PSL v2 for more details. */
 
 using namespace common;
 
-//RC create_selection_executor(
-//   Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
+// RC create_selection_executor(
+//    Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
 
 //! Constructor
 ExecuteStage::ExecuteStage(const char *tag) : Stage(tag)
@@ -138,91 +138,91 @@ void ExecuteStage::handle_request(common::StageEvent *event)
 
   if (stmt != nullptr) {
     switch (stmt->type()) {
-    case StmtType::SELECT: {
-      do_select(sql_event);
-    } break;
-    case StmtType::INSERT: {
-      do_insert(sql_event);
-    } break;
-    case StmtType::UPDATE: {
-      //do_update((UpdateStmt *)stmt, session_event);
-      do_update(sql_event);
-    } break;
-    case StmtType::DELETE: {
-      do_delete(sql_event);
-    } break;
-    default: {
-      LOG_WARN("should not happen. please implenment");
-    } break;
+      case StmtType::SELECT: {
+        do_select(sql_event);
+      } break;
+      case StmtType::INSERT: {
+        do_insert(sql_event);
+      } break;
+      case StmtType::UPDATE: {
+        // do_update((UpdateStmt *)stmt, session_event);
+        do_update(sql_event);
+      } break;
+      case StmtType::DELETE: {
+        do_delete(sql_event);
+      } break;
+      default: {
+        LOG_WARN("should not happen. please implenment");
+      } break;
     }
   } else {
     switch (sql->flag) {
-    case SCF_HELP: {
-      do_help(sql_event);
-    } break;
-    case SCF_CREATE_TABLE: {
-      do_create_table(sql_event);
-    } break;
-    case SCF_CREATE_INDEX: {
-      do_create_index(sql_event);
-    } break;
-    case SCF_SHOW_TABLES: {
-      do_show_tables(sql_event);
-    } break;
-    case SCF_DESC_TABLE: {
-      do_desc_table(sql_event);
-    } break;
+      case SCF_HELP: {
+        do_help(sql_event);
+      } break;
+      case SCF_CREATE_TABLE: {
+        do_create_table(sql_event);
+      } break;
+      case SCF_CREATE_INDEX: {
+        do_create_index(sql_event);
+      } break;
+      case SCF_SHOW_TABLES: {
+        do_show_tables(sql_event);
+      } break;
+      case SCF_DESC_TABLE: {
+        do_desc_table(sql_event);
+      } break;
 
-    case SCF_DROP_TABLE: {
-      do_drop_table(sql_event);
-      break;
-    }
-    case SCF_DROP_INDEX:
-    case SCF_SHOW_INDEX:{
-      LOG_TRACE("enter case switch show index\n");
-      do_show_index(sql_event);
-    } break;
-    case SCF_LOAD_DATA: {
-      default_storage_stage_->handle_event(event);
-    } break;
-    case SCF_SYNC: {
-      /*
-      RC rc = DefaultHandler::get_default().sync();
-      session_event->set_response(strrc(rc));
-      */
-    } break;
-    case SCF_BEGIN: {
-      do_begin(sql_event);
-      /*
-      session_event->set_response("SUCCESS\n");
-      */
-    } break;
-    case SCF_COMMIT: {
-      do_commit(sql_event);
-      /*
-      Trx *trx = session->current_trx();
-      RC rc = trx->commit();
-      session->set_trx_multi_operation_mode(false);
-      session_event->set_response(strrc(rc));
-      */
-    } break;
-    case SCF_CLOG_SYNC: {
-      do_clog_sync(sql_event);
-    }
-    case SCF_ROLLBACK: {
-      Trx *trx = session_event->get_client()->session->current_trx();
-      RC rc = trx->rollback();
-      session->set_trx_multi_operation_mode(false);
-      session_event->set_response(strrc(rc));
-    } break;
-    case SCF_EXIT: {
-      // do nothing
-      const char *response = "Unsupported\n";
-      session_event->set_response(response);
-    } break;
-    default: {
-      LOG_ERROR("Unsupported command=%d\n", sql->flag);
-    }
+      case SCF_DROP_TABLE: {
+        do_drop_table(sql_event);
+        break;
+      }
+      case SCF_DROP_INDEX:
+      case SCF_SHOW_INDEX: {
+        LOG_TRACE("enter case switch show index\n");
+        do_show_index(sql_event);
+      } break;
+      case SCF_LOAD_DATA: {
+        default_storage_stage_->handle_event(event);
+      } break;
+      case SCF_SYNC: {
+        /*
+        RC rc = DefaultHandler::get_default().sync();
+        session_event->set_response(strrc(rc));
+        */
+      } break;
+      case SCF_BEGIN: {
+        do_begin(sql_event);
+        /*
+        session_event->set_response("SUCCESS\n");
+        */
+      } break;
+      case SCF_COMMIT: {
+        do_commit(sql_event);
+        /*
+        Trx *trx = session->current_trx();
+        RC rc = trx->commit();
+        session->set_trx_multi_operation_mode(false);
+        session_event->set_response(strrc(rc));
+        */
+      } break;
+      case SCF_CLOG_SYNC: {
+        do_clog_sync(sql_event);
+      }
+      case SCF_ROLLBACK: {
+        Trx *trx = session_event->get_client()->session->current_trx();
+        RC rc = trx->rollback();
+        session->set_trx_multi_operation_mode(false);
+        session_event->set_response(strrc(rc));
+      } break;
+      case SCF_EXIT: {
+        // do nothing
+        const char *response = "Unsupported\n";
+        session_event->set_response(response);
+      } break;
+      default: {
+        LOG_ERROR("Unsupported command=%d\n", sql->flag);
+      }
     }
   }
 }
@@ -278,11 +278,26 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
   }
 }
 
+void tuple_add_to_select_sub(const Tuple &tuple,Value* sub_select_value)
+{
+  TupleCell cell;
+  RC rc = RC::SUCCESS;
+  bool first_field = true;
+  for (int i = 0; i < tuple.cell_num(); i++) {
+    rc = tuple.cell_at(i, cell);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
+      break;
+    }
+    cell.add_to_value_data(sub_select_value);
+  }
+}
+
 IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 {
   LOG_TRACE("Enter\n");
   const std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
-  if (filter_units.empty() ) {
+  if (filter_units.empty()) {
     return nullptr;
   }
 
@@ -291,7 +306,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   // 这里的查找规则是比较简单的，就是尽量找到使用相等比较的索引
   // 如果没有就找范围比较的，但是直接排除不等比较的索引查询. (你知道为什么?)
   const FilterUnit *better_filter = nullptr;
-  for (const FilterUnit * filter_unit : filter_units) {
+  for (const FilterUnit *filter_unit : filter_units) {
     if (filter_unit->comp() == NOT_EQUAL) {
       continue;
     }
@@ -301,7 +316,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
     if (left->type() == ExprType::FIELD && right->type() == ExprType::VALUE) {
     } else if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
       std::swap(left, right);
-    } else if (left->type() == ExprType::VALUE && right->type() == ExprType::VALUE) { // hsy add
+    } else if (left->type() == ExprType::VALUE && right->type() == ExprType::VALUE) {  // hsy add
       return nullptr;
     }
     FieldExpr &left_field_expr = *(FieldExpr *)left;
@@ -313,7 +328,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
         better_filter = filter_unit;
       } else if (filter_unit->comp() == EQUAL_TO) {
         better_filter = filter_unit;
-    	break;
+        break;
       }
     }
   }
@@ -328,18 +343,29 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
     std::swap(left, right);
     switch (comp) {
-    case EQUAL_TO:    { comp = EQUAL_TO; }    break;
-    case LESS_EQUAL:  { comp = GREAT_THAN; }  break;
-    case NOT_EQUAL:   { comp = NOT_EQUAL; }   break;
-    case LESS_THAN:   { comp = GREAT_EQUAL; } break;
-    case GREAT_EQUAL: { comp = LESS_THAN; }   break;
-    case GREAT_THAN:  { comp = LESS_EQUAL; }  break;
-    default: {
-    	LOG_WARN("should not happen");
-    }
+      case EQUAL_TO: {
+        comp = EQUAL_TO;
+      } break;
+      case LESS_EQUAL: {
+        comp = GREAT_THAN;
+      } break;
+      case NOT_EQUAL: {
+        comp = NOT_EQUAL;
+      } break;
+      case LESS_THAN: {
+        comp = GREAT_EQUAL;
+      } break;
+      case GREAT_EQUAL: {
+        comp = LESS_THAN;
+      } break;
+      case GREAT_THAN: {
+        comp = LESS_EQUAL;
+      } break;
+      default: {
+        LOG_WARN("should not happen");
+      }
     }
   }
-
 
   FieldExpr &left_field_expr = *(FieldExpr *)left;
   const Field &field = left_field_expr.field();
@@ -357,53 +383,53 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   bool right_inclusive = false;
 
   switch (comp) {
-  case EQUAL_TO: {
-    left_cell = &value;
-    right_cell = &value;
-    left_inclusive = true;
-    right_inclusive = true;
-  } break;
+    case EQUAL_TO: {
+      left_cell = &value;
+      right_cell = &value;
+      left_inclusive = true;
+      right_inclusive = true;
+    } break;
 
-  case LESS_EQUAL: {
-    left_cell = nullptr;
-    left_inclusive = false;
-    right_cell = &value;
-    right_inclusive = true;
-  } break;
+    case LESS_EQUAL: {
+      left_cell = nullptr;
+      left_inclusive = false;
+      right_cell = &value;
+      right_inclusive = true;
+    } break;
 
-  case LESS_THAN: {
-    left_cell = nullptr;
-    left_inclusive = false;
-    right_cell = &value;
-    right_inclusive = false;
-  } break;
+    case LESS_THAN: {
+      left_cell = nullptr;
+      left_inclusive = false;
+      right_cell = &value;
+      right_inclusive = false;
+    } break;
 
-  case GREAT_EQUAL: {
-    left_cell = &value;
-    left_inclusive = true;
-    right_cell = nullptr;
-    right_inclusive = false;
-  } break;
+    case GREAT_EQUAL: {
+      left_cell = &value;
+      left_inclusive = true;
+      right_cell = nullptr;
+      right_inclusive = false;
+    } break;
 
-  case GREAT_THAN: {
-    left_cell = &value;
-    left_inclusive = false;
-    right_cell = nullptr;
-    right_inclusive = false;
-  } break;
+    case GREAT_THAN: {
+      left_cell = &value;
+      left_inclusive = false;
+      right_cell = nullptr;
+      right_inclusive = false;
+    } break;
 
-  default: {
-    LOG_WARN("should not happen. comp=%d", comp);
-  } break;
+    default: {
+      LOG_WARN("should not happen. comp=%d", comp);
+    } break;
   }
 
-  IndexScanOperator *oper = new IndexScanOperator(table, index,
-       left_cell, left_inclusive, right_cell, right_inclusive);
+  IndexScanOperator *oper = new IndexScanOperator(table, index, left_cell, left_inclusive, right_cell, right_inclusive);
 
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
-static RC check_select_meta(SelectStmt *select_stmt) {
+static RC check_select_meta(SelectStmt *select_stmt)
+{
   LOG_TRACE("Enter\n");
   std::string table_name = select_stmt->tables()[0]->name();
   BufferPoolManager &bpm = BufferPoolManager::instance();
@@ -421,11 +447,11 @@ static RC check_select_meta(SelectStmt *select_stmt) {
   TableMeta table_meta = table->table_meta();
   std::unordered_set<std::string> field_names;
   const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
-  for (FieldMeta meta: (*field_metas)) {
+  for (FieldMeta meta : (*field_metas)) {
     field_names.insert(meta.name());
   }
   std::vector<Field> fields = select_stmt->query_fields();
-  for (Field field: fields) {
+  for (Field field : fields) {
     if (field_names.find(field.field_name()) == field_names.end()) {
       rc = RC::INVALID_ARGUMENT;
     }
@@ -454,7 +480,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
   }
 
-  DEFER([&] () {delete scan_oper;});
+  DEFER([&]() { delete scan_oper; });
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
@@ -474,7 +500,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   while ((rc = project_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
-    Tuple * tuple = project_oper.current_tuple();
+    Tuple *tuple = project_oper.current_tuple();
     if (nullptr == tuple) {
       rc = RC::INTERNAL;
       LOG_WARN("failed to get current record. rc=%s", strrc(rc));
@@ -493,6 +519,98 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   }
   session_event->set_response(ss.str());
   return rc;
+}
+
+RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_list)
+{
+  for (int i = 0; i < value_amount; i++) {
+    LOG_INFO("Enter value %d", i);
+    Value *cur_value = value_list[i];
+    if (cur_value->type != SELECT_SUB) {
+      continue;
+    }
+    Selects *select = (Selects *)cur_value->select_sub_data;
+    LOG_INFO("We have %d attribute num, %d relation num, %d condition num",
+        select->attr_num,
+        select->relation_num,
+        select->condition_num);
+    if (select->attr_num > 1) {
+      LOG_INFO("More than one attribute");
+      return RC::SCHEMA_TABLE_EXIST;
+    }
+    Stmt *select_stmt_ = nullptr;
+    SelectStmt::create(db, *select, select_stmt_);
+    LOG_TRACE("Enter\n");
+    SelectStmt *select_stmt = (SelectStmt *)select_stmt_;
+    RC rc = RC::SUCCESS;
+    if (select_stmt->tables().size() != 1) {
+      LOG_WARN("select more than 1 tables is not supported");
+      rc = RC::UNIMPLENMENT;
+      return rc;
+    }
+    rc = check_select_meta(select_stmt);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+    if (nullptr == scan_oper) {
+      scan_oper = new TableScanOperator(select_stmt->tables()[0]);
+    }
+
+    DEFER([&]() { delete scan_oper; });
+    PredicateOperator pred_oper(select_stmt->filter_stmt());
+    pred_oper.add_child(scan_oper);
+    ProjectOperator project_oper;
+    project_oper.add_child(&pred_oper);
+    for (const Field &field : select_stmt->query_fields()) {
+      project_oper.add_projection(field.table(), field.meta());
+    }
+    rc = project_oper.open();
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to open operator");
+      return rc;
+    }
+    int count=1;
+    const Field & field_cur=select_stmt->query_fields()[0];
+    if(field_cur.attr_type()==CHARS){
+      cur_value->type=CHARS;
+    }
+    else if(field_cur.attr_type()==INTS){
+      cur_value->type=INTS;
+    }
+    else if(field_cur.attr_type()==FLOATS){
+      cur_value->type=FLOATS;
+    }
+    while ((rc = project_oper.next()) == RC::SUCCESS) {
+      // get current record
+      // write to response
+      if(count>1){
+        rc = RC::INTERNAL;
+        LOG_WARN("More than one record");
+        break;
+      }
+      Tuple *tuple = project_oper.current_tuple();
+      if (nullptr == tuple) {
+        rc = RC::INTERNAL;
+        LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+        break;
+      }
+      tuple_add_to_select_sub((*tuple),cur_value);
+      count+=1;
+    }
+
+    if (rc != RC::RECORD_EOF) {
+      LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+      project_oper.close();
+    } else {
+      rc = project_oper.close();
+    }
+    if(rc!=RC::SUCCESS){
+      return rc;
+    }
+  }
+  return RC::SUCCESS;
+
 }
 
 // hsy add
@@ -524,18 +642,22 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   close(fd);
   Table *table = update_stmt->table();
   TableMeta table_meta = table->table_meta();
+  // Zhenyu used for to iterate every attribute name we want to update
   std::unordered_set<std::string> field_names;
   const std::vector<FieldMeta> *field_metas = table_meta.field_metas();
-  for (FieldMeta meta: (*field_metas)) {
+  for (FieldMeta meta : (*field_metas)) {
     field_names.insert(meta.name());
   }
-  if (field_names.find(update_stmt->attribute_name()) == field_names.end()) {
-    LOG_WARN("invalid target column: %s", update_stmt->attribute_name());
-    rc = RC::INVALID_ARGUMENT;
-    session_event->set_response("FAILURE\n");
-    return rc;
+  for (int i = 0; i < update_stmt->attribute_num; i++) {
+    if (field_names.find(update_stmt->attribute_names[i]) == field_names.end()) {
+      LOG_WARN("invalid target column: %s", update_stmt->attribute_name());
+      rc = RC::INVALID_ARGUMENT;
+      session_event->set_response("FAILURE\n");
+      return rc;
+    }
   }
-  Condition* conditions = update_stmt->conditions();
+
+  Condition *conditions = update_stmt->conditions();
   int condition_num = update_stmt->value_amount();
   LOG_TRACE("condition_num = %d", condition_num);
   for (int i = 0; i < condition_num; i++) {
@@ -545,7 +667,7 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
       rc = RC::INVALID_ARGUMENT;
       session_event->set_response("FAILURE\n");
       return rc;
-    } 
+    }
   }
   LOG_DEBUG("try to create scan_oper");
   Operator *scan_oper = try_to_create_index_scan_operator(update_stmt->filter_stmt());
@@ -553,14 +675,20 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
     LOG_DEBUG("create index scan operator failed, start to create table scan operator");
     scan_oper = new TableScanOperator(update_stmt->table());
   }
-
-  DEFER([&] () {delete scan_oper;});
+  Db *db = session_event->session()->get_current_db();
+  DEFER([&]() { delete scan_oper; });
   LOG_DEBUG("create pred_oper");
+  RC temp=convert_select_sub_query(db, update_stmt->value_num, update_stmt->values_list);
+  if (temp != RC::SUCCESS) {
+    session_event->set_response("FAILURE\n");
+    return temp;
+  }
   PredicateOperator pred_oper(update_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
   UpdateOperator update_oper(update_stmt);
   update_oper.add_child(&pred_oper);
   rc = update_oper.open();
+
   if (rc != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
   } else {
@@ -589,8 +717,7 @@ RC ExecuteStage::do_create_table(SQLStageEvent *sql_event)
   const CreateTable &create_table = sql_event->query()->sstr.create_table;
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
-  RC rc = db->create_table(create_table.relation_name,
-			create_table.attribute_count, create_table.attributes);
+  RC rc = db->create_table(create_table.relation_name, create_table.attribute_count, create_table.attributes);
   if (rc == RC::SUCCESS) {
     session_event->set_response("SUCCESS\n");
   } else {
@@ -603,7 +730,7 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
   const CreateIndex &create_index = sql_event->query()->sstr.create_index;
-  LOG_INFO("num is %d",create_index.attribute_num);
+  LOG_INFO("num is %d", create_index.attribute_num);
   Table *table = db->find_table(create_index.relation_name);
   if (nullptr == table) {
     session_event->set_response("FAILURE\n");
@@ -614,40 +741,41 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
   return rc;
 }
 
-RC ExecuteStage::do_show_index(SQLStageEvent *sql_event){
+RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
+{
   LOG_TRACE("enter do show index\n");
   SessionEvent *session_event = sql_event->session_event();
   Db *db = session_event->session()->get_current_db();
-  const ShowIndex &show_index=sql_event->query()->sstr.show_index;
-  Table* table=db->find_table(show_index.table_name);
+  const ShowIndex &show_index = sql_event->query()->sstr.show_index;
+  Table *table = db->find_table(show_index.table_name);
   if (nullptr == table) {
     session_event->set_response("FAILURE\n");
     return RC::SUCCESS;
   }
-  const TableMeta tableMeta=table->table_meta();
+  const TableMeta tableMeta = table->table_meta();
   std::vector<Index *> all_indexes;
-  all_indexes=table->find_all_index();
-  const char* response="TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME";
+  all_indexes = table->find_all_index();
+  const char *response = "TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME";
 
   std::stringstream ss;
   int j;
   int i;
-  if(table==nullptr){
+  if (table == nullptr) {
     sql_event->session_event()->set_response("FAILURE\n");
     return RC::SUCCESS;
   }
-  ss<<response<<std::endl;
-  for(j=0;j<tableMeta.index_num();j++){
-    const IndexMeta* cur_index=tableMeta.index(j);
-    for(i=cur_index->attribute_num-1;i>=0;i--){
-      ss<<show_index.table_name<<"|"<<1-cur_index->unique<<"|"<<cur_index->name()<<"|"<<cur_index->attribute_num-i<<"|"<<cur_index->attribute_name_list[i]<<std::endl;
+  ss << response << std::endl;
+  for (j = 0; j < tableMeta.index_num(); j++) {
+    const IndexMeta *cur_index = tableMeta.index(j);
+    for (i = cur_index->attribute_num - 1; i >= 0; i--) {
+      ss << show_index.table_name << "|" << 1 - cur_index->unique << "|" << cur_index->name() << "|"
+         << cur_index->attribute_num - i << "|" << cur_index->attribute_name_list[i] << std::endl;
     }
   }
 
   session_event->set_response(ss.str().c_str());
   LOG_TRACE("exit do show index\n");
   return RC::SUCCESS;
-    
 }
 
 RC ExecuteStage::do_show_tables(SQLStageEvent *sql_event)
@@ -716,7 +844,7 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
       if (rc != RC::SUCCESS) {
         session_event->set_response("FAILURE\n");
         return rc;
-      } 
+      }
 
       trx->next_current_id();
       session_event->set_response("SUCCESS\n");
@@ -768,7 +896,7 @@ RC ExecuteStage::do_delete(SQLStageEvent *sql_event)
       if (rc != RC::SUCCESS) {
         session_event->set_response("FAILURE\n");
         return rc;
-      } 
+      }
 
       trx->next_current_id();
       session_event->set_response("SUCCESS\n");

@@ -40,6 +40,12 @@ void relation_attr_destroy(RelAttr *relation_attr)
   relation_attr->attribute_name = nullptr;
 }
 
+void value_init_select_sub(Value *value,Selects *selects){
+  value->type=SELECT_SUB;
+  value->select_sub_data=malloc(sizeof(*selects));
+  memcpy(value->select_sub_data,selects,sizeof(*selects));
+}
+
 void value_init_integer(Value *value, int v)
 {
   value->type = INTS;
@@ -81,6 +87,8 @@ void value_destroy(Value *value)
   value->type = UNDEFINED;
   free(value->data);
   value->data = nullptr;
+  free(value->select_sub_data);
+  value->select_sub_data=nullptr;
 }
 
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
@@ -222,7 +230,15 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
     updates->conditions[i] = conditions[i];
   }
   updates->condition_num = condition_num;
+  updates->attribute_names[updates->attribute_num++]=strdup(attribute_name);
+  updates->values[updates->value_num++]=*value;
 }
+
+void updates_append_id_values(Updates *updates,const char *attribute_name,Value *value){
+  updates->attribute_names[updates->attribute_num++]=strdup(attribute_name);
+  updates->values[updates->value_num++]=*value;
+}
+
 
 void updates_destroy(Updates *updates)
 {

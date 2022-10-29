@@ -71,5 +71,15 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   }
   stmt = new UpdateStmt(table, const_cast<Value*>(&(update.value)), update.condition_num, 
   update.attribute_name, filter_stmt, update.relation_name, const_cast<Condition*>(update.conditions));
+  ((UpdateStmt*)stmt)->attribute_num=update.attribute_num;
+  for(int i=0;i<update.attribute_num;i++){
+    ((UpdateStmt*)stmt)->attribute_names[i]=update.attribute_names[i];
+  }
+  ((UpdateStmt*)stmt)->value_num=update.attribute_num;
+  for(int i=0;i<update.value_num;i++){
+    ((UpdateStmt*)stmt)->values_list[i]=const_cast<Value*>(&update.values[i]);
+  }
+
+
   return rc;
 }

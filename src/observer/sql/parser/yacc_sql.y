@@ -18,6 +18,8 @@ typedef struct ParserContext {
   size_t value_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
+  size_t select_sub_condition_length;
+  Condition select_sub_conditions[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -352,6 +354,53 @@ value:
 			$1 = substr($1,1,strlen($1)-2);
   			value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
+	|LBRACE SELECT select_attr_update_sub FROM ID update_sub_rel_list where RBRACE
+	{	
+
+		value_init_select_sub(&CONTEXT->values[CONTEXT->value_length],&CONTEXT->ssql->sstr.selection);
+		selects_append_relation((Selects *)CONTEXT->values[CONTEXT->value_length].select_sub_data,$5);
+		selects_append_conditions((Selects*)CONTEXT->values[CONTEXT->value_length].select_sub_data,CONTEXT->conditions, CONTEXT->condition_length);
+		CONTEXT->value_length++;
+
+		// CONTEXT->ssql->flag=SCF_SELECT;//"select";
+		CONTEXT->condition_length=0;
+		CONTEXT->from_length=0;
+		CONTEXT->select_length=0;
+		CONTEXT->ssql->sstr.selection.attr_num=0;
+		CONTEXT->ssql->sstr.selection.relation_num=0;
+		CONTEXT->ssql->sstr.selection.condition_num=0;
+	}
+    ;
+
+update_sub_rel_list:
+    /* empty */
+    | COMMA ID update_sub_rel_list {	
+				selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+		  }
+    ;
+
+select_attr_update_sub:
+    STAR {  
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, "*");
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		}
+	| STAR attr_list{
+			RelAttr attr;
+			relation_attr_init(&attr,NULL,"*");
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+
+		}
+    | ID attr_list {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $1);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		}
+  	| ID DOT ID attr_list {
+			RelAttr attr;
+			relation_attr_init(&attr, $1, $3);
+			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+		}
     ;
     
 delete:		/*  delete 语句的语法解析树*/
@@ -365,7 +414,7 @@ delete:		/*  delete 语句的语法解析树*/
     }
     ;
 update:			/*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where SEMICOLON
+    UPDATE ID SET ID EQ value update_id_list where SEMICOLON
 		{
 			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
 			Value *value = &CONTEXT->values[0];
@@ -438,6 +487,14 @@ index_list:
     /* empty */
     | COMMA ID index_list {	
 				create_index_append(&CONTEXT->ssql->sstr.create_index,$2);
+		  }
+    ;
+
+update_id_list:
+    /* empty */	
+    | COMMA ID EQ value update_id_list {	
+			Value *value = &CONTEXT->values[CONTEXT->value_length-1];
+			updates_append_id_values(&CONTEXT->ssql->sstr.update,$2,value);
 		  }
     ;	
 

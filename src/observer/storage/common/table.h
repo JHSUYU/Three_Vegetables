@@ -63,6 +63,7 @@ public:
   //  * @param base_dir 表数据存放的路径
   //  */
   RC destroy(const char *base_dir);
+  RC update_multi_record(Trx *trx, char *attribute_name[], size_t attribute_num, Value *value[],size_t value_nums,int condition_num, const Condition conditions[], int *updated_count);
 
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,

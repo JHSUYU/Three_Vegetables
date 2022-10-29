@@ -44,6 +44,10 @@ public:
   char *attribute_name() const { return attribute_name_; }
   char *relation_name() const { return relation_name_; }
   Condition *conditions() const {return conditions_; }
+  size_t attribute_num;
+  char *attribute_names[MAX_NUM];
+  size_t value_num;
+  Value *values_list[MAX_NUM];
 
 private:
   Table *table_ = nullptr;

@@ -34,6 +34,7 @@ public:
   void set_length(int length) { this->length_ = length; }
   void set_data(char *data) { this->data_ = data; }
   void set_data(const char *data) { this->set_data(const_cast<char *>(data)); }
+  void add_to_value_data(Value* value);
 
   void to_string(std::ostream &os) const;
 

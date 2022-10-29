@@ -354,7 +354,7 @@ RC Table::recover_insert_record(Record *record)
 
 RC Table::check_unique_index(Record &record)
 {
-  const TableMeta& tableMeta=table_meta();
+  const TableMeta &tableMeta = table_meta();
   for (int j = 0; j < tableMeta.index_num(); j++) {
     const IndexMeta *cur_index = tableMeta.index(j);
     if (cur_index->unique == 0) {
@@ -443,7 +443,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     // temp test code end
 
     RC rc = make_record(field_num, &values[i], record_data);
-    
+
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
       for (int j = 0; j < record_index; j++) {
@@ -458,9 +458,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
 
     Record record;
     record.set_data(record_data);
-    
-    RC rc_check_unique_index=check_unique_index(record);
-    if(rc_check_unique_index!=RC::SUCCESS){
+
+    RC rc_check_unique_index = check_unique_index(record);
+    if (rc_check_unique_index != RC::SUCCESS) {
       return rc_check_unique_index;
     }
     rc = insert_record(trx, &record);
@@ -1073,6 +1073,102 @@ static RC record_reader_update_adapter(Record *record, void *context)
   return record_updater.update_record(record);
 }
 
+// Zhenyu add
+class MultiRecordUpdater {
+public:
+  MultiRecordUpdater(Table &table, Trx *trx, char *attribute_names[], size_t attribute_num,
+      Value *value_list[], size_t value_nums)
+      : table_(table),
+        trx_(trx),
+        attribute_names_(attribute_names),
+        value_list_(value_list),
+        attribute_num_(attribute_num),
+        value_nums_(value_nums)
+  {}
+  RC update_record(Record *record)
+  {
+
+    LOG_TRACE("Enter\n");
+    RC rc = RC::SUCCESS;
+    // generate new record
+    // char *new_record;
+    // int values_num = table_.table_meta().field_num();
+    // Value values[values_num];
+    // const IndexMeta *meta = table_.table_meta().find_index_by_field(attribute_name_);
+    char *data = record->data();
+    for (int i = 0; i < attribute_num_; i++) {
+      LOG_INFO("We have %d attributes",attribute_num_);
+      const FieldMeta *field_meta = table_.table_meta().field(attribute_names_[i]);
+      int offset = field_meta->offset();
+      // table_.make_record(values_num, values, new_record);
+      // record->set_data(new_record);
+      size_t copy_len = field_meta->len();
+      if (field_meta->type() == CHARS) {
+        const size_t data_len = strlen((const char *)value_->data);
+        if (copy_len > data_len) {
+          copy_len = data_len + 1;
+        }
+        memcpy(data + offset, value_list_[i]->data, copy_len);
+      } else if (field_meta->type() == DATES) {
+        LOG_TRACE("Enter\n");
+        std::string str((char *)value_list_[i]->data);
+        std::match_results<std::string::iterator> result;
+        std::string pattern = "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+        std::regex r(pattern);
+        std::regex_match(str.begin(), str.end(), result, r);
+        if (result.size() == 0) {
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+        std::vector<std::string> date;
+        common::split_string(result[0].str(), "-", date);
+        if (date.size() != 3) {
+          return RC::INVALID_ARGUMENT;
+        }
+        int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+        LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+        bool b = check_date(y, m, d);
+        if (!b)
+          return RC::INVALID_ARGUMENT;
+        int date_data = y * 10000 + m * 100 + d;
+        LOG_DEBUG("date = %d", data);
+        memcpy(data + offset, &date_data, sizeof(int));
+      } else {
+        memcpy(data + offset, value_list_[i]->data, copy_len);
+        LOG_INFO("Value we write is %d",*(int*)value_list_[i]->data);
+      }
+    }
+    record->set_data(data);
+    rc = table_.update_record(trx_, record);
+    if (rc == RC::SUCCESS) {
+      updated_count_++;
+    }
+    LOG_TRACE("Exit\n");
+    return rc;
+  }
+
+  int updated_count() const
+  {
+    return updated_count_;
+  }
+
+private:
+  Table &table_;
+  Trx *trx_;
+  int updated_count_ = 0;
+  const char *attribute_name_;
+  const Value *value_;
+  char **attribute_names_;
+  size_t attribute_num_;
+  Value **value_list_;
+  size_t value_nums_;
+};
+
+static RC multi_record_reader_update_adapter(Record *record, void *context)
+{
+  MultiRecordUpdater &record_updater = *(MultiRecordUpdater *)context;
+  return record_updater.update_record(record);
+}
+
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
     const Condition conditions[], int *updated_count)
 {
@@ -1102,6 +1198,51 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   }
   return rc;
 }
+
+RC Table::update_multi_record(Trx *trx, char *attribute_names[], size_t attribute_num, Value *value_list[],
+    size_t value_nums, int condition_num, const Condition conditions[], int *updated_count)
+{
+  // hsy add
+  RC rc = RC::SUCCESS;
+  for (int i = 0; i < attribute_num; i++) {
+    const char *attribute_name = attribute_names[i];
+    const Value *value = value_list[i];
+    LOG_INFO("Attribute name is %s",attribute_name);
+    LOG_INFO("Value data is %d",*(int *)value->data);
+    if (attribute_name == nullptr || value == nullptr) {
+      LOG_ERROR("Invalid argument. table name: %s, attribute name=%s, values=%p", name(), attribute_name, value);
+      return RC::INVALID_ARGUMENT;
+    }
+  }
+  MultiRecordUpdater multi_record_updater(*this, trx, attribute_names, attribute_num, value_list, value_nums);
+  if (condition_num == 0) {
+    LOG_TRACE("condition num = 0");
+    rc = scan_record(trx, nullptr, -1, &multi_record_updater, multi_record_reader_update_adapter);
+    if (updated_count != nullptr) {
+      *updated_count = multi_record_updater.updated_count();
+    }
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+
+  } else {
+    CompositeConditionFilter filter;
+    filter.init(*this, conditions, condition_num);
+    LOG_TRACE("start scan record for updating");
+    // LOG_DEBUG("attribute_name = %s, value:%s", attribute_name, (char *)value->data);
+    rc = scan_record(trx, &filter, -1, &multi_record_updater, multi_record_reader_update_adapter);
+    if (updated_count != nullptr) {
+      *updated_count = multi_record_updater.updated_count();
+    }
+    LOG_TRACE("after updating, the updated_count = %d", *updated_count);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+  }
+
+  return rc;
+}
+
 RC Table::update_record(Trx *trx, Record *record /* old record in the page, should be new */)
 {
   RC rc = RC::SUCCESS;

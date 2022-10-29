@@ -20,53 +20,108 @@ See the Mulan PSL v2 for more details. */
 
 #include <regex>
 
+// Zhenyu add
+void TupleCell::add_to_value_data(Value* sub_value)
+{
+  switch (attr_type_) {
+    case INTS: {
+        int v = *(int *)data_;
+        sub_value->type = INTS;
+        sub_value->data = malloc(sizeof(v));
+        memcpy(sub_value->data, &v, sizeof(v));
+    } break;
+    case DATES: {
+      sub_value->type=DATES;
+      int value = *(int *)data_;
+      char buf[16] = {0};
+      snprintf(buf,
+          sizeof(buf),
+          "%04d-%02d-%02d",
+          value / 10000,
+          (value % 10000) / 100,
+          value % 100);  // 注意这里月份和天数，不足两位时需要填充0
+      sub_value->data = malloc(sizeof(value));
+      memcpy(sub_value->data, &value, sizeof(value));
+    } break;
+    case FLOATS: {
+      float v = *(float *)data_;
+      sub_value->type = FLOATS;
+      sub_value->data = malloc(sizeof(v));
+      memcpy(sub_value->data, &v, sizeof(v));
+      
+    } break;
+    case CHARS: {
+      int i=0;
+      char* v=(char*)data_;
+      for (i = 0; i < length_; i++) {
+        if (data_[i] == '\0') {
+          break;
+        }       
+      }
+      sub_value->type=CHARS;
+      sub_value->data=malloc(sizeof(char)*i);
+      memcpy(sub_value->data,v,sizeof(char)*i);
+    } break;
+    default: {
+      LOG_WARN("unsupported attr type: %d", attr_type_);
+    } break;
+  }
+}
+
 void TupleCell::to_string(std::ostream &os) const
 {
   switch (attr_type_) {
-  case INTS: { 
-    os << *(int *)data_;
-  } break;
-  case DATES: {
-    int value = *(int*)data_;
-    char buf[16] = {0};
-    snprintf(buf,sizeof(buf),"%04d-%02d-%02d",value/10000, (value%10000)/100,value%100); // 注意这里月份和天数，不足两位时需要填充0
-    os << buf;
-  } break;
-  case FLOATS: {
-    float v = *(float *)data_;
-    os << double2string(v);
-  } break;
-  case CHARS: {
-    for (int i = 0; i < length_; i++) {
-      if (data_[i] == '\0') {
-        break;
+    case INTS: {
+      os << *(int *)data_;
+    } break;
+    case DATES: {
+      int value = *(int *)data_;
+      char buf[16] = {0};
+      snprintf(buf,
+          sizeof(buf),
+          "%04d-%02d-%02d",
+          value / 10000,
+          (value % 10000) / 100,
+          value % 100);  // 注意这里月份和天数，不足两位时需要填充0
+      os << buf;
+    } break;
+    case FLOATS: {
+      float v = *(float *)data_;
+      os << double2string(v);
+    } break;
+    case CHARS: {
+      for (int i = 0; i < length_; i++) {
+        if (data_[i] == '\0') {
+          break;
+        }
+        os << data_[i];
       }
-      os << data_[i];
-    }
-  } break;
-  default: {
-    LOG_WARN("unsupported attr type: %d", attr_type_);
-  } break;
+    } break;
+    default: {
+      LOG_WARN("unsupported attr type: %d", attr_type_);
+    } break;
   }
 }
 static bool check_date(int y, int m, int d)
 {
-    static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    bool leap = (y%400==0 || (y%100 && y%4==0));
-    return (m > 0)&&(m <= 12)
-        && (d > 0)&&(d <= ((m==2 && leap)?1:0) + mon[m]);
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  bool leap = (y % 400 == 0 || (y % 100 && y % 4 == 0));
+  return (m > 0) && (m <= 12) && (d > 0) && (d <= ((m == 2 && leap) ? 1 : 0) + mon[m]);
 }
 int TupleCell::compare(const TupleCell &other) const
 {
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
-    case INTS: 
-    case DATES: return compare_int(this->data_, other.data_);
-    case FLOATS: return compare_float(this->data_, other.data_);
-    case CHARS: return compare_string(this->data_, this->length_, other.data_, other.length_);
-    default: {
-      LOG_WARN("unsupported type: %d", this->attr_type_);
-    }
+      case INTS:
+      case DATES:
+        return compare_int(this->data_, other.data_);
+      case FLOATS:
+        return compare_float(this->data_, other.data_);
+      case CHARS:
+        return compare_string(this->data_, this->length_, other.data_, other.length_);
+      default: {
+        LOG_WARN("unsupported type: %d", this->attr_type_);
+      }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
     float this_data = *(int *)data_;
@@ -76,14 +131,14 @@ int TupleCell::compare(const TupleCell &other) const
     return compare_float(data_, &other_data);
   } else if (this->attr_type_ == INTS && other.attr_type_ == CHARS) {
     float other_data = atof(other.data_);
-    
+
     // int num = (int)(other_data + 0.5);
-    float this_data = (float)(*((int*)(this->data_)));
+    float this_data = (float)(*((int *)(this->data_)));
     LOG_DEBUG("other_data = %d, this_data = %d", other_data, this_data);
     return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == INTS) {
     float this_data = atof(this->data_);
-    float other_data = (float)(*(int*)other.data_);
+    float other_data = (float)(*(int *)other.data_);
     LOG_DEBUG("other_data = %d, this_data = %d", other_data, this_data);
     return compare_float(&this_data, &other_data);
   } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) {
@@ -93,27 +148,28 @@ int TupleCell::compare(const TupleCell &other) const
     float other_data = atof(other.data_);
     return compare_float(data_, &other_data);
   } else if (this->attr_type_ == DATES && other.attr_type_ == CHARS) {
-      std::string str((char*)other.data());
-      std::match_results<std::string::iterator> result;
-      std::string pattern =  "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
-      std::regex r(pattern);
-      std::regex_match(str.begin(), str.end(), result, r);
-      if(result.size() == 0) {
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-      std::vector<std::string> date;
-      common::split_string(result[0].str(), "-", date);
-      if (date.size() != 3) {
-        return RC::INVALID_ARGUMENT;
-      }
-      int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
-      LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
-      bool b = check_date(y, m, d);
-      if (!b) return RC::INVALID_ARGUMENT;
-      int date_data = y * 10000 + m * 100 + d;
-      LOG_DEBUG("date = %d", date_data);
-      return (*(int*)this->data()) - date_data;
+    std::string str((char *)other.data());
+    std::match_results<std::string::iterator> result;
+    std::string pattern = "[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])";
+    std::regex r(pattern);
+    std::regex_match(str.begin(), str.end(), result, r);
+    if (result.size() == 0) {
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+    std::vector<std::string> date;
+    common::split_string(result[0].str(), "-", date);
+    if (date.size() != 3) {
+      return RC::INVALID_ARGUMENT;
+    }
+    int y = atoi(date[0].c_str()), m = atoi(date[1].c_str()), d = atoi(date[2].c_str());
+    LOG_DEBUG("y: %d, m: %d, d: %d", y, m, d);
+    bool b = check_date(y, m, d);
+    if (!b)
+      return RC::INVALID_ARGUMENT;
+    int date_data = y * 10000 + m * 100 + d;
+    LOG_DEBUG("date = %d", date_data);
+    return (*(int *)this->data()) - date_data;
   }
   LOG_WARN("not supported");
-  return -1; // TODO return rc?
+  return -1;  // TODO return rc?
 }
