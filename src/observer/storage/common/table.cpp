@@ -1229,7 +1229,10 @@ RC Table::update_multi_record(Trx *trx, char *attribute_names[], size_t attribut
 
   } else {
     CompositeConditionFilter filter;
-    filter.init(*this, conditions, condition_num);
+    rc=filter.init(*this, conditions, condition_num);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     LOG_TRACE("start scan record for updating");
     // LOG_DEBUG("attribute_name = %s, value:%s", attribute_name, (char *)value->data);
     rc = scan_record(trx, &filter, -1, &multi_record_updater, multi_record_reader_update_adapter);
