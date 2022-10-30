@@ -1012,6 +1012,7 @@ public:
     // Value values[values_num];
     // const IndexMeta *meta = table_.table_meta().find_index_by_field(attribute_name_);
     const FieldMeta *field_meta = table_.table_meta_.field(attribute_name_);
+    
     int offset = field_meta->offset();
     // table_.make_record(values_num, values, new_record);
     // record->set_data(new_record);

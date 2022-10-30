@@ -37,6 +37,12 @@ public:
     }
     if (merged_tuple_ != nullptr) {
       delete &(merged_tuple_->record());
+      for (int i = 0; i < merged_tuple_->cell_num(); i++) {
+        const TupleCellSpec* cell_spec;
+        merged_tuple_->cell_spec_at(i, cell_spec);
+        delete &cell_spec;
+      }
+      
     }
     if (merged_tuple_ != nullptr) {
       delete merged_tuple_;
