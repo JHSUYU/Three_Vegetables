@@ -428,9 +428,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     char *record_data;
     int record_index = i / field_num;
 
-    LOG_INFO("Before make_record()");
     RC rc = make_record(field_num, &values[i], record_data);
-    LOG_INFO("After make_record()");
     
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
@@ -1005,20 +1003,41 @@ public:
   {}
   RC update_record(Record *record)
   {
-    LOG_TRACE("Enter\n");
+    LOG_INFO("update_record()\n");
     RC rc = RC::SUCCESS;
     // generate new record
     // char *new_record;
     // int values_num = table_.table_meta().field_num();
     // Value values[values_num];
     // const IndexMeta *meta = table_.table_meta().find_index_by_field(attribute_name_);
+    
+    const std::vector<FieldMeta> *field_metas = table_.table_meta_.field_metas();
     const FieldMeta *field_meta = table_.table_meta_.field(attribute_name_);
     int offset = field_meta->offset();
+    int field_index = 0;
+    for (FieldMeta meta: (*field_metas)) {
+      if (0 == strcmp(meta.name(), attribute_name_))
+        break;
+      field_index ++;
+    }
     // table_.make_record(values_num, values, new_record);
     // record->set_data(new_record);
     char *data = record->data();
     size_t copy_len = field_meta->len();
-    if (field_meta->type() == CHARS) {
+
+    const FieldMeta *null_field_meta = table_.table_meta_.field("__null");
+    if (null_field_meta == nullptr) {
+      LOG_ERROR("cannot find null_field!\n");
+      return RC::INVALID_ARGUMENT;
+    }
+    // czy add: set column = null
+    int null_bitmap = *(int *)(record->data() + null_field_meta->offset());
+    LOG_INFO("before update: null_bitmap = %d\n", null_bitmap);
+    null_bitmap &= ~(1 << (field_index - table_.table_meta_.sys_field_num()));
+    if (value_->type == NULLTYPE) {
+      null_bitmap |= (1 << (field_index - table_.table_meta_.sys_field_num()));
+    }
+    else if (field_meta->type() == CHARS) {
       const size_t data_len = strlen((const char *)value_->data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
@@ -1050,6 +1069,9 @@ public:
     } else {
       memcpy(data + offset, value_->data, copy_len);
     }
+    LOG_INFO("after update: null_bitmap = %d\n", null_bitmap);
+    int *p = &null_bitmap;
+    memcpy(data + null_field_meta->offset(), (void *)p, sizeof(int));
     record->set_data(data);
     rc = table_.update_record(trx_, record);
     if (rc == RC::SUCCESS) {
@@ -1087,6 +1109,13 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
     LOG_ERROR("Invalid argument. table name: %s, attribute name=%s, values=%p", name(), attribute_name, value);
     return RC::INVALID_ARGUMENT;
   }
+  // czy add start
+  const FieldMeta *field_meta = table_meta_.field(attribute_name);
+  if (field_meta->nullable() == false && value->type == NULLTYPE) {
+    LOG_ERROR("column %s is not nullable!", attribute_name);
+    return RC::INVALID_ARGUMENT;
+  }
+  // czy add end
   RecordUpdater record_updater(*this, trx, attribute_name, value);
   RC rc = RC::SUCCESS;
   if (condition_num == 0) {

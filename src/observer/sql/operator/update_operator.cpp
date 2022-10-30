@@ -29,7 +29,7 @@ RC UpdateOperator::open()
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     const TupleCellSpec *spec = nullptr;
     row_tuple->cell_spec_at(1, spec);
-    LOG_DEBUG("current tuple info: %s", spec->alias());
+    LOG_INFO("current tuple info: %s", spec->alias());
 
     Record &record = row_tuple->record();
     int update_count = 0;
