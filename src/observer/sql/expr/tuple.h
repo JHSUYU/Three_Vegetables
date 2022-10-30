@@ -110,12 +110,24 @@ public:
       return RC::INVALID_ARGUMENT;
     }
 
+    // 获取 null_bitmap
+    const TupleCellSpec *null_spec = speces_[1];
+    FieldExpr *null_field_expr = (FieldExpr *)null_spec->expression();
+    const FieldMeta *null_field_meta = null_field_expr->field().meta();
+    int null_bitmap = *(int *)(this->record_->data() + null_field_meta->offset());
+    bool is_null = (null_bitmap >> (index - table_->table_meta().sys_field_num())) & 1;
+    
     const TupleCellSpec *spec = speces_[index];
     FieldExpr *field_expr = (FieldExpr *)spec->expression();
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset());
     cell.set_length(field_meta->len());
+
+    if (is_null)
+      cell.set_type(NULLTYPE);
+
+    // LOG_INFO("cell_at(%d), is_null = %d\n", index, (int)is_null);
     return RC::SUCCESS;
   }
 
@@ -131,7 +143,7 @@ public:
       const FieldExpr * field_expr = (const FieldExpr *)speces_[i]->expression();
       const Field &field = field_expr->field();
       if (0 == strcmp(field_name, field.field_name())) {
-	return cell_at(i, cell);
+	      return cell_at(i, cell);
       }
     }
     return RC::NOTFOUND;

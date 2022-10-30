@@ -410,14 +410,14 @@ RC Table::check_unique_index(Record &record)
 
 RC Table::insert_record(Trx *trx, int value_num, const Value *values)
 {
-  LOG_TRACE("Enter\n");
+  LOG_INFO("Enter insert_record(Trx *trx, int value_num, const Value *values)\n");
   if (value_num <= 0 || nullptr == values) {
     LOG_ERROR("Invalid argument. table name: %s, value num=%d, values=%p", name(), value_num, values);
     return RC::INVALID_ARGUMENT;
   }
 
   const TableMeta &tableMeta = table_meta();
-  LOG_TRACE("table index number is %d", tableMeta.index_num());
+  LOG_INFO("table index number is %d", tableMeta.index_num());
 
   const int normal_field_start_index = table_meta_.sys_field_num();
   const int field_num = table_meta_.field_num() - normal_field_start_index;
@@ -428,21 +428,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     char *record_data;
     int record_index = i / field_num;
 
-    // temp test code start
-    // if (i + field_num == value_num) {
-    //   LOG_ERROR("ROLLBACK TEST STARTS...");
-    //   for (int j = 0; j < record_index; j++) {
-    //     RC delete_rc = delete_record(trx, &record_list[j]);
-    //     if (delete_rc != RC::SUCCESS) {
-    //       LOG_ERROR("Failed to roll back multiple insert operations");
-    //       return delete_rc;
-    //     }
-    //   }
-    //   break;
-    // }
-    // temp test code end
-
+    LOG_INFO("Before make_record()");
     RC rc = make_record(field_num, &values[i], record_data);
+    LOG_INFO("After make_record()");
     
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
@@ -463,7 +451,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     if(rc_check_unique_index!=RC::SUCCESS){
       return rc_check_unique_index;
     }
+    LOG_INFO("Before insert_record(trx, &record);");
     rc = insert_record(trx, &record);
+    LOG_INFO("After insert_record(trx, &record);");
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
       for (int j = 0; j < record_index; j++) {
@@ -515,7 +505,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     const AttrType value_type = value.type;
     // hsy add
     // date type transformation and typecast in the future
-    LOG_DEBUG("field_type = %d, value_type = %d", field->type(), value.type);
+    LOG_INFO("field_type = %d, value_type = %d", field->type(), value.type);
     if (field->type() == DATES && value.type == CHARS) {
       LOG_TRACE("Enter\n");
       std::string str((char *)value.data);
@@ -532,7 +522,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       if (field_type == INTS && value_type == FLOATS || field_type == FLOATS && value_type == INTS ||
           field_type == CHARS && value_type == INTS || field_type == INTS && value_type == CHARS ||
           field_type == FLOATS && value_type == CHARS || field_type == CHARS && value_type == FLOATS ||
-          value_type == NULLTYPE) {
+          field->nullable() && value_type == NULLTYPE) {
         continue;
       }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
@@ -548,13 +538,19 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   int record_size = table_meta_.record_size();
   char *record = new char[record_size];
 
+  const FieldMeta *null_field = table_meta_.field("__null");
+  if (null_field == nullptr) {
+    LOG_ERROR("failed to find null_field! \n");
+    return RC::INVALID_ARGUMENT;
+  }
+  int null_bitmap = 0;  // sys_field: __null 列, 标记normal field的null情况
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i % field_num + normal_field_start_index);
     const Value &value = values[i];
     // hsy add
     Value value_for_copy = value;
     size_t copy_len = field->len();
-    LOG_DEBUG("copy_len = %d", copy_len);
+    LOG_INFO("copy_len = %d", copy_len);
     if (field->type() == CHARS && value.type == CHARS) {
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
@@ -621,17 +617,20 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
           break;
         }
       }
-      LOG_DEBUG("data = %s", (char *)data.c_str());
+      LOG_INFO("data = %s", (char *)data.c_str());
       (value_for_copy.data) = (void *)data.c_str();
-      LOG_DEBUG("data = %s", (char *)value_for_copy.data);
-      LOG_TRACE("Exit\n");
+      LOG_INFO("data = %s", (char *)value_for_copy.data);
+      LOG_INFO("Exit\n");
       copy_len = data.size() + 1;
     } else if (value.type == NULLTYPE) {
-      // if (field->nullable() == false) {
-      //   LOG_ERROR("field %s is not nullable", field->name());
-      //   return RC::INVALID_ARGUMENT;
-      // }
-
+      // 修改sys_field:__null的值
+      null_bitmap |= (1 << i);
+      int *p = &null_bitmap;
+      copy_len = sizeof(int);
+      memcpy(record + null_field->offset(), (void *)p, copy_len);
+      LOG_INFO("in value.type == NULLTYPE, null_bitmap = %d", null_bitmap);
+      // LOG_INFO("out value.type == NULLTYPE");
+      continue;
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
   }

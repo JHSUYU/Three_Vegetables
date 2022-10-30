@@ -70,6 +70,7 @@ RC FieldMeta::init(const char *name, AttrType attr_type, int attr_offset, int at
   attr_len_ = attr_len;
   attr_offset_ = attr_offset;
   visible_ = visible;
+  nullable_ = nullable;
   
   LOG_INFO("Init a field with name=%s", name);
   return RC::SUCCESS;
@@ -100,10 +101,15 @@ bool FieldMeta::visible() const
   return visible_;
 }
 
+bool FieldMeta::nullable() const
+{
+  return nullable_;
+}
+
 void FieldMeta::desc(std::ostream &os) const
 {
   os << "field name=" << name_ << ", type=" << attr_type_to_string(attr_type_) << ", len=" << attr_len_
-     << ", visible=" << (visible_ ? "yes" : "no");
+     << ", visible=" << (visible_ ? "yes" : "no") << ", nullable=" << (nullable_ ? "yes" : "no");
 }
 
 void FieldMeta::to_json(Json::Value &json_value) const
@@ -113,6 +119,7 @@ void FieldMeta::to_json(Json::Value &json_value) const
   json_value[FIELD_OFFSET] = attr_offset_;
   json_value[FIELD_LEN] = attr_len_;
   json_value[FIELD_VISIBLE] = visible_;
+  json_value[FIELD_NULLABLE] = nullable_;
   //TODO NULLLABLE
 }
 

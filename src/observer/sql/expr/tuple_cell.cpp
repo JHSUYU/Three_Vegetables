@@ -44,6 +44,9 @@ void TupleCell::to_string(std::ostream &os) const
       os << data_[i];
     }
   } break;
+  case NULLTYPE: {
+    os << "null";
+  } break;
   default: {
     LOG_WARN("unsupported attr type: %d", attr_type_);
   } break;

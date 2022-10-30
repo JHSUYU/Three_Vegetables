@@ -2,7 +2,7 @@
  * @Author: 181830014 181830014@smail.nju.edu.cn
  * @Date: 2022-10-21 17:50:56
  * @LastEditors: 181830014 181830014@smail.nju.edu.cn
- * @LastEditTime: 2022-10-29 23:48:48
+ * @LastEditTime: 2022-10-30 17:03:38
  * @FilePath: /source/ocean/src/observer/storage/common/field_meta.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -46,6 +46,7 @@ public:
   int offset() const;
   int len() const;
   bool visible() const;
+  bool nullable() const;
 
 public:
   void desc(std::ostream &os) const;
@@ -60,5 +61,6 @@ protected:
   int attr_offset_;
   int attr_len_;
   bool visible_;
+  bool nullable_;
 };
 #endif  // __OBSERVER_STORAGE_COMMON_FIELD_META_H__
