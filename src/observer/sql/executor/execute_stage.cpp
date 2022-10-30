@@ -499,8 +499,18 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
   
   LOG_INFO("DO AGGREGATION 2 2 2!! !! !!");
   int tuple_num = 0;
-  bool first_tuple = true;
   std::vector <TupleCell> aggr_result;
+  for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+    TupleCell *tcell = new TupleCell();
+    tcell->set_type(NULLTYPE);
+    aggr_result.push_back(*tcell);
+  }
+  // 聚合时某一列非null的tuple数量
+  std::vector <int> not_null_count;
+  for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+    not_null_count.push_back(0);
+  }
+
   while ((rc = project_oper.next()) == RC::SUCCESS) {
     // get current record
     // write to response
@@ -520,10 +530,6 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
     for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
       char *aggr_func = select_stmt->aggr_funcs()[i];
       if (0 == strncmp(aggr_func, "COUNT(", 6)) {
-        if (first_tuple) {
-          TupleCell *tmp = new TupleCell();
-          aggr_result.push_back(*tmp);
-        }
         continue;
       }
       RC rc_cell = tuple->cell_at(cell_index++, cell);
@@ -531,10 +537,16 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
         LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
         return rc_cell;
       }
-      if (first_tuple) {
-        aggr_result.push_back(cell);
-      } 
+
+      if (cell.attr_type() == NULLTYPE) {
+        continue;
+      }
+      else if (aggr_result[i].attr_type() == NULLTYPE) {
+        not_null_count[i] ++;
+        aggr_result[i] = cell;
+      }
       else {
+        not_null_count[i] ++;
         if (0 == strcmp(aggr_func, "MAX")) {
           TupleCell ans_cell = aggr_result[i];
           if (ans_cell.compare(cell) < 0)
@@ -544,7 +556,6 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
           if (ans_cell.compare(cell) > 0)
             aggr_result[i] = cell;
         } else if (0 == strcmp(aggr_func, "SUM") || 0 == strcmp(aggr_func, "AVG")) {
-
           TupleCell ans_cell = aggr_result[i];
           if (ans_cell.attr_type() != INTS && ans_cell.attr_type() != FLOATS && ans_cell.attr_type() != CHARS)
             return RC::INVALID_ARGUMENT;
@@ -579,51 +590,55 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
           
       } 
     }
-  
-    first_tuple = false;
   }
 
   LOG_INFO("tuple_num = %d", tuple_num);
-  // 处理空表情况 default=0, TODO: 改为非INT类型
-  if (tuple_num == 0) {
-    for (int i = 0; i < aggr_result.size(); i++) {
-      char *aggr_func = select_stmt->aggr_funcs()[i];
-      TupleCell cell;
-      int *data = new int;
-      *data = 0;
-      cell.set_type(INTS);
-      cell.set_data((char *)data);
-    }
-  }
-  // 处理空表结束
 
   for (int i = 0; i < aggr_result.size(); i++) {
     TupleCell cell = aggr_result[i];
     char *aggr_func = select_stmt->aggr_funcs()[i];
-    if (0 == strncmp(aggr_func, "COUNT", 5)) {
+    if (0 == strncmp(aggr_func, "COUNT(", 6)) {
       int *count = new int;
       *count = tuple_num;
+      LOG_INFO("COUNT(*) = %d", *count);
+      cell.set_type(INTS);
+      cell.set_data((char *)count);
+      aggr_result[i] = cell;
+    } else if (not_null_count[i] == 0) {
+      cell.set_type(NULLTYPE);
+    } else if (0 == strcmp(aggr_func, "COUNT")) {
+      int *count = new int;
+      *count = not_null_count[i];
       LOG_INFO("COUNT = %d", *count);
       cell.set_type(INTS);
       cell.set_data((char *)count);
       aggr_result[i] = cell;
-    }
-    else if (0 == strcmp(aggr_func, "AVG")) {
+    } else if (0 == strcmp(aggr_func, "AVG")) {
       float sum = 0;
       if (cell.attr_type() == INTS) sum = *(int *)cell.data();
       else sum = *(float *)cell.data();
       float *avg = new float;
-      *avg = sum / tuple_num;
+      *avg = sum / not_null_count[i];
       LOG_INFO("AVERAGE = %.2lf", *avg);
       cell.set_type(FLOATS);
       cell.set_data((char *)avg);
       aggr_result[i] = cell;
     }
   }
-  // apply_aggr_to_tuple(select_stmt, *tuple);
+
+  // 处理空表情况 default=0, TODO: 改为非INT类型
+  // if (tuple_num == 0) {
+  //   for (int i = 0; i < aggr_result.size(); i++) {
+  //     char *aggr_func = select_stmt->aggr_funcs()[i];
+  //     TupleCell cell;
+  //     cell.set_type(NULLTYPE);
+  //     aggr_result.push_back(cell);
+  //   }
+  // }
+  // 处理空表结束
+
   tuplecell_list_to_string(ss, aggr_result);
   ss << std::endl;
-  
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));

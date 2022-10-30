@@ -40,6 +40,8 @@ typedef enum {
   /* czy add */
   LIKE,         //"like"  6
   NOT_LIKE,     //"not like" 7
+  IS,           //"is"    8
+  IS_NOT,       //"isn't" 9
   NO_OP
 } CompOp;
 

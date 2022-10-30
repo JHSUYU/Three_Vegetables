@@ -82,6 +82,8 @@ QUOTE            [\'\"]
 [Cc][Oo][Uu][Nn][Tt][\(][\*][\)]                     RETURN_TOKEN(COUNTALLXING);
 [Cc][Oo][Uu][Nn][Tt][\(][1][\)]                      RETURN_TOKEN(COUNTALL1);
 [Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT);
+[Ii][Ss]{WHITE_SAPCE}[Nn][Oo][Tt]                    RETURN_TOKEN(ISS_NOT);
+[Ii][Ss]                                             RETURN_TOKEN(ISS);
 [Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]                     RETURN_TOKEN(NULLABLE);
 [Nn][Uu][Ll][Ll]                                     RETURN_TOKEN(NULL_);
 

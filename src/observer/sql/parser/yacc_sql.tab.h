@@ -106,15 +106,17 @@ extern int yydebug;
     COUNT = 307,                   /* COUNT  */
     COUNTALLXING = 308,            /* COUNTALLXING  */
     COUNTALL1 = 309,               /* COUNTALL1  */
-    NULL_ = 310,                   /* NULL_  */
-    NULLABLE = 311,                /* NULLABLE  */
-    NUMBER = 312,                  /* NUMBER  */
-    FLOAT = 313,                   /* FLOAT  */
-    ID = 314,                      /* ID  */
-    PATH = 315,                    /* PATH  */
-    SSS = 316,                     /* SSS  */
-    STAR = 317,                    /* STAR  */
-    STRING_V = 318                 /* STRING_V  */
+    ISS_NOT = 310,                 /* ISS_NOT  */
+    ISS = 311,                     /* ISS  */
+    NULL_ = 312,                   /* NULL_  */
+    NULLABLE = 313,                /* NULLABLE  */
+    NUMBER = 314,                  /* NUMBER  */
+    FLOAT = 315,                   /* FLOAT  */
+    ID = 316,                      /* ID  */
+    PATH = 317,                    /* PATH  */
+    SSS = 318,                     /* SSS  */
+    STAR = 319,                    /* STAR  */
+    STRING_V = 320                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -174,21 +176,23 @@ extern int yydebug;
 #define COUNT 307
 #define COUNTALLXING 308
 #define COUNTALL1 309
-#define NULL_ 310
-#define NULLABLE 311
-#define NUMBER 312
-#define FLOAT 313
-#define ID 314
-#define PATH 315
-#define SSS 316
-#define STAR 317
-#define STRING_V 318
+#define ISS_NOT 310
+#define ISS 311
+#define NULL_ 312
+#define NULLABLE 313
+#define NUMBER 314
+#define FLOAT 315
+#define ID 316
+#define PATH 317
+#define SSS 318
+#define STAR 319
+#define STRING_V 320
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 119 "yacc_sql.y"
+#line 121 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -198,7 +202,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 202 "y.tab.h"
+#line 206 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

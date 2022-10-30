@@ -113,6 +113,8 @@ ParserContext *get_context(yyscan_t scanner)
 		COUNT
 		COUNTALLXING
 		COUNTALL1
+		ISS_NOT
+		ISS
 		NULL_
 		NULLABLE
 
@@ -703,6 +705,8 @@ comOp:
     | NE { CONTEXT->comp = NOT_EQUAL; }
 	| LK { CONTEXT->comp = LIKE; }
 	| NLK { CONTEXT->comp = NOT_LIKE; }
+	| ISS { CONTEXT->comp = IS; }
+	| ISS_NOT { CONTEXT->comp = IS_NOT; }
     ;
 
 load_data:

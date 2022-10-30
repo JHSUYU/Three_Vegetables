@@ -124,10 +124,10 @@ public:
     case CHARS: {
       std::string str;
       for (int i = 0; i < attr_length_; i++) {
-	if (v[i] == 0) {
-	  break;
-	}
-	str.push_back(v[i]);
+      if (v[i] == 0) {
+        break;
+      }
+      str.push_back(v[i]);
       }
       return str;
     }
