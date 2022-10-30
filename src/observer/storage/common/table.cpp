@@ -1106,10 +1106,15 @@ public:
       size_t copy_len = field_meta->len();
       if (field_meta->type() == CHARS) {
         LOG_INFO("The attribute type is chars");
+        if(value_list_[i]->type==INTS){
+          int data_value=*(int*)value_list_[i]->data;
+          value_list_[i]->data=(void*)std::to_string(data_value).c_str();
+        }
         const size_t data_len = strlen((const char *)value_list_[i]->data);
         if (copy_len > data_len) {
           copy_len = data_len + 1;
         }
+        
         memcpy(data + offset, value_list_[i]->data, copy_len);
       } else if (field_meta->type() == DATES) {
         LOG_TRACE("Enter\n");
@@ -1134,9 +1139,33 @@ public:
         int date_data = y * 10000 + m * 100 + d;
         LOG_DEBUG("date = %d", data);
         memcpy(data + offset, &date_data, sizeof(int));
-      } else {
+      } else if (field_meta->type() == INTS)  {
+        if(value_list_[i]->type==FLOATS){
+          float data_value=*(float*)value_list_[i]->data;
+          int temp=(int)data_value;
+          memcpy(data + offset, &temp, copy_len);
+        }
+        else if(value_list_[i]->type==CHARS){
+          int data_value=atoi((char*)value_list_[i]->data);
+          memcpy(data + offset, &data_value, copy_len);
+        }
+        else{
         memcpy(data + offset, value_list_[i]->data, copy_len);
+        }
         LOG_INFO("Value we write is %d",*(int*)value_list_[i]->data);
+      }
+      //floats
+      else{
+        if(value_list_[i]->type==INTS){
+          int data_value=*(int*)value_list_[i]->data;
+          float temp=(float)data_value;
+          memcpy(data + offset, &temp, copy_len);
+        }
+        else{
+        memcpy(data + offset, value_list_[i]->data, copy_len);
+        LOG_INFO("Value we write is %d",*(float*)value_list_[i]->data);
+        }
+              
       }
     }
     record->set_data(data);

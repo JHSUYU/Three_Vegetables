@@ -993,6 +993,7 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
       }
       TupleCell &cell = aggr_result[0];
       cell.add_to_value_data(cur_value);
+      continue;
     }
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to open operator");
