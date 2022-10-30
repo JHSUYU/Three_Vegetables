@@ -42,6 +42,7 @@ void relation_attr_destroy(RelAttr *relation_attr)
 
 void value_init_select_sub(Value *value,Selects *selects){
   value->type=SELECT_SUB;
+  LOG_INFO("We have set value type to select sub");
   value->select_sub_data=malloc(sizeof(*selects));
   memcpy(value->select_sub_data,selects,sizeof(*selects));
 }

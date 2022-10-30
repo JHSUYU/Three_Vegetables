@@ -53,8 +53,11 @@ void TupleCell::add_to_value_data(Value* sub_value)
     case CHARS: {
       int i=0;
       char* v=(char*)data_;
+      LOG_INFO("Current type is string, and length is %d","length_");
+      LOG_INFO("The string is %s",v);
+      
       for (i = 0; i < length_; i++) {
-        if (data_[i] == '\0') {
+        if (v[i] == '\0') {
           break;
         }       
       }

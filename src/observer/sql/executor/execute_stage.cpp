@@ -527,8 +527,10 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
     LOG_INFO("Enter value %d", i);
     Value *cur_value = value_list[i];
     if (cur_value->type != SELECT_SUB) {
+      LOG_INFO("It is not SELECT_SUB");
       continue;
     }
+    LOG_INFO("It is SELECT_SUB");
     Selects *select = (Selects *)cur_value->select_sub_data;
     LOG_INFO("We have %d attribute num, %d relation num, %d condition num",
         select->attr_num,
@@ -622,6 +624,7 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   }
   UpdateStmt *update_stmt = (UpdateStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
+  Updates* update=&sql_event->query()->sstr.update;
   RC rc = RC::SUCCESS;
   if (update_stmt->table() == nullptr) {
     LOG_WARN("target table for updating does not exist.");
@@ -675,10 +678,16 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
     LOG_DEBUG("create index scan operator failed, start to create table scan operator");
     scan_oper = new TableScanOperator(update_stmt->table());
   }
+  Value* value_temp[MAX_NUM];
+  for(int i=0;i<update->value_num;i++){
+    LOG_INFO("The type is %d",update->values[i].type);
+    value_temp[i]=&update->values[i];
+  }
   Db *db = session_event->session()->get_current_db();
   DEFER([&]() { delete scan_oper; });
-  LOG_DEBUG("create pred_oper");
-  RC temp=convert_select_sub_query(db, update_stmt->value_num, update_stmt->values_list);
+  LOG_DEBUG("have %d values to update",update->value_num);
+  LOG_DEBUG("Type is %d",update->values[0].type);
+  RC temp=convert_select_sub_query(db, update->value_num, value_temp);
   if (temp != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
     return temp;

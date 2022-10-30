@@ -77,6 +77,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   }
   ((UpdateStmt*)stmt)->value_num=update.attribute_num;
   for(int i=0;i<update.value_num;i++){
+    LOG_INFO("The type is %d",update.values[i].type);
     ((UpdateStmt*)stmt)->values_list[i]=const_cast<Value*>(&update.values[i]);
   }
 
