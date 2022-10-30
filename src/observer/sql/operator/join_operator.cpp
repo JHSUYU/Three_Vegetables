@@ -199,7 +199,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     } 
     LOG_TRACE("Enter\n");
     
-    char* record_data = new char[left_record_size + right_record_size];
+    char* record_data = new char[left_record_size + right_record_size + 4];
     LOG_DEBUG("total_record_size = %d", left_record_size + right_record_size);
     LOG_TRACE("Enter\n");
     
@@ -212,6 +212,8 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     //     LOG_DEBUG("right_data = %d", right_data[i]);
     // }
     memcpy(record_data + left_record_size, right_data, right_record_size);
+    char zero[4] = {'\0', '\0', '\0', '\0'};
+    memcpy(record_data + left_record_size + right_record_size, zero, 4);
     // for (int i = 0; i < left_record_size; i++) {
     //     record_data[i] = left_data[i];
     // }
