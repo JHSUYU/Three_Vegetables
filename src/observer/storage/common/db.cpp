@@ -32,6 +32,9 @@ Db::~Db()
   for (auto &iter : opened_tables_) {
     delete iter.second;
   }
+  if (clog_manager_ != nullptr) {
+    delete clog_manager_;
+  }
   LOG_INFO("Db has been closed: %s", name_.c_str());
 }
 

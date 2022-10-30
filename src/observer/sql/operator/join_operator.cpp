@@ -226,7 +226,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
     // }
     Record &record = merged_tuple_->record();
     if (record.data() != nullptr) {
-        delete record.data();
+        delete[] record.data();
         record.set_data(nullptr);
     }
     record.set_data(record_data);

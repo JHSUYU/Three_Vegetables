@@ -410,6 +410,12 @@ CLogManager::~CLogManager()
   if (log_buffer_) {
     delete log_buffer_;
   }
+  if (log_file_) {
+    delete log_file_;
+  }
+  if (log_buffer_) {
+    delete log_mtr_mgr_;
+  }
 }
 
 RC CLogManager::clog_gen_record(CLogType flag, int32_t trx_id, CLogRecord *&log_rec,
