@@ -32,16 +32,16 @@ public:
 
   ~JoinOperator() {
     if (merged_tuple_ != nullptr && merged_tuple_->record().data() != nullptr) {
-      delete merged_tuple_->record().data();
+      delete[] merged_tuple_->record().data();
       merged_tuple_->record().set_data(nullptr);
     }
     if (merged_tuple_ != nullptr) {
       delete &(merged_tuple_->record());
-      for (int i = 0; i < merged_tuple_->cell_num(); i++) {
-        const TupleCellSpec* cell_spec;
-        merged_tuple_->cell_spec_at(i, cell_spec);
-        delete &cell_spec;
-      }
+      // for (int i = 0; i < merged_tuple_->cell_num(); i++) {
+      //   const TupleCellSpec* cell_spec;
+      //   merged_tuple_->cell_spec_at(i, cell_spec);
+      //   delete &cell_spec;
+      // }
       
     }
     if (merged_tuple_ != nullptr) {
@@ -49,10 +49,9 @@ public:
       merged_tuple_ = nullptr;
     }
     if (tmp_table_ != nullptr) {
-      const std::vector<FieldMeta> *metas = tmp_table_->table_meta().field_metas();
-      if (metas != nullptr) {
-        for (int i = 0; i < metas->size(); i++) {
-          delete &metas[i];
+      for (int i = 0; i < added_field_metas.size(); i++) {
+        if (added_field_metas[i] != nullptr) {
+          delete added_field_metas[i];
         }
       }
     }
@@ -76,9 +75,10 @@ private:
   Operator *right_ = nullptr;
   bool round_done_ = true;
 
-  RowTuple *merged_tuple_;
+  RowTuple *merged_tuple_ = nullptr;
   
   int next_cnt = 0;
 
-  Table* tmp_table_;
+  Table* tmp_table_ = nullptr;
+  std::vector<FieldMeta*> added_field_metas;
 };

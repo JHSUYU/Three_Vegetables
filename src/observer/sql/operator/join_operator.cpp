@@ -149,6 +149,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
             std::string alias_name = origin_table_name + "." + field_name;
             LOG_TRACE("alias name = %s", alias_name.c_str());
             FieldMeta* new_field = new FieldMeta();
+            added_field_metas.push_back(new_field);
             new_field->init(expr->field().field_name(), expr->field().attr_type(), 
             meta->offset(), meta->len(), meta->visible());
             FieldExpr* new_expr = new FieldExpr(tmp_table_, new_field);
@@ -186,6 +187,7 @@ RC JoinOperator::merge_tuple(Tuple* left_tuple, Tuple* right_tuple) {
             std::string field_name(expr->field().field_name());
             std::string alias_name = table_name + "." + field_name;
             FieldMeta* new_field = new FieldMeta();
+            added_field_metas.push_back(new_field);
             new_field->init(expr->field().field_name(), expr->field().attr_type(), 
             meta->offset() + left_record_size, meta->len(), meta->visible());
             FieldExpr* new_expr = new FieldExpr(tmp_table_, new_field);

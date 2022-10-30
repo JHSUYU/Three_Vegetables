@@ -786,6 +786,23 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   } else {
     rc = project_oper.close();
   }
+  if (scan_oper != nullptr) {
+    delete scan_oper;
+  }
+  if (scan_ops.size() > 0) {
+    for (int i = 0; i < scan_ops.size(); i++) {
+      if (scan_ops[i] != nullptr) {
+        delete scan_ops[i];
+        scan_ops[i] = nullptr;
+      }
+    }
+  }
+  for (int i = 0; i < join_oper_list.size(); i++) {
+    if (join_oper_list[i] != nullptr) {
+      delete join_oper_list[i];
+      join_oper_list[i] = nullptr;
+    }
+  }
   session_event->set_response(ss.str());
   return rc;
 }

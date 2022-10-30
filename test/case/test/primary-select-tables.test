@@ -22,20 +22,20 @@ INSERT INTO Select_tables_5 VALUES (1, 11, 'f');
 INSERT INTO Select_tables_5 VALUES (2, 12, 'c');
 
 -- echo 1. multi-table query 
--- sort SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3;
--- sort SELECT Select_tables_1.id,Select_tables_2.u_name,Select_tables_3.res FROM Select_tables_1,Select_tables_2,Select_tables_3;
+SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3;
+SELECT Select_tables_1.id,Select_tables_2.u_name,Select_tables_3.res FROM Select_tables_1,Select_tables_2,Select_tables_3;
 Select Select_tables_1.res FROM Select_tables_1,Select_tables_2,Select_tables_3;
 
 -- echo 2. conditional query
--- sort SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.u_name=Select_tables_2.u_name AND Select_tables_2.u_name=Select_tables_3.u_name;
--- sort SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.id=Select_tables_2.id AND Select_tables_3.res=35;
--- sort SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.age<18 AND Select_tables_2.u_name='c' AND Select_tables_3.res=35 AND Select_tables_1.id=Select_tables_2.id AND Select_tables_2.id=Select_tables_3.id;
--- sort SELECT Select_tables_2.age FROM Select_tables_1,Select_tables_2 WHERE Select_tables_1.age<18 AND Select_tables_2.u_name='c' AND Select_tables_1.id=Select_tables_2.id;
+SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.u_name=Select_tables_2.u_name AND Select_tables_2.u_name=Select_tables_3.u_name;
+SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.id=Select_tables_2.id AND Select_tables_3.res=35;
+SELECT * FROM Select_tables_1,Select_tables_2,Select_tables_3 WHERE Select_tables_1.age<18 AND Select_tables_2.u_name='c' AND Select_tables_3.res=35 AND Select_tables_1.id=Select_tables_2.id AND Select_tables_2.id=Select_tables_3.id;
+SELECT Select_tables_2.age FROM Select_tables_1,Select_tables_2 WHERE Select_tables_1.age<18 AND Select_tables_2.u_name='c' AND Select_tables_1.id=Select_tables_2.id;
 
 -- echo 3. duplicate key query
--- sort SELECT * from Select_tables_4, Select_tables_5 where Select_tables_4.id=Select_tables_5.id;
--- sort select * from Select_tables_4, Select_tables_5 where Select_tables_4.id >= Select_tables_5.id;
+SELECT * from Select_tables_4, Select_tables_5 where Select_tables_4.id=Select_tables_5.id;
+select * from Select_tables_4, Select_tables_5 where Select_tables_4.id >= Select_tables_5.id;
 
 -- echo 4. join empty table
 CREATE TABLE Select_tables_6(id int, res int);
--- sort SELECT Select_tables_1.id,Select_tables_6.id from Select_tables_1, Select_tables_6 where Select_tables_1.id=Select_tables_6.id;
+SELECT Select_tables_1.id,Select_tables_6.id from Select_tables_1, Select_tables_6 where Select_tables_1.id=Select_tables_6.id;
