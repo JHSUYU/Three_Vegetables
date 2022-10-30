@@ -256,7 +256,9 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper, bool is_m
         os << cell_spec->alias();
       } else {
         std::vector<std::string> names;
+        LOG_DEBUG("alias = %s", cell_spec->alias().c_str());
         common::split_string(cell_spec->alias(), ".", names);
+        
         os << names.back().c_str();
       }
     }
@@ -268,7 +270,7 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper, bool is_m
   LOG_TRACE("Exit\n");
 }
 
-void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std::vector<char *> aggr_funcs)
+void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std::vector<char *> aggr_funcs, bool is_multi_table)
 {
   const int cell_num = oper.tuple_cell_num();
   const TupleCellSpec *cell_spec = nullptr;
@@ -284,10 +286,20 @@ void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std:
     oper.tuple_cell_spec_at(cell_index--, cell_spec);
 
     if (cell_spec->alias().size() > 0) {
-      os << aggr_funcs[i];
-      os << "(";
-      os << cell_spec->alias().c_str();
-      os << ")";
+      if (is_multi_table) {
+        os << aggr_funcs[i];
+        os << "(";
+        os << cell_spec->alias().c_str();
+        os << ")";
+      } else {
+        std::vector<std::string> names;
+        common::split_string(cell_spec->alias(), ".", names);
+        os << aggr_funcs[i];
+        os << "(";
+        os << names.back().c_str();
+        os << ")";
+      }
+      
     }
   }
 
@@ -519,7 +531,8 @@ RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper) {
     LOG_WARN("aggr_funcs.size() = %d, but cell_num = %d", aggr_funcs.size(), cell_num);
     return RC::SQL_SYNTAX;
   }
-  print_aggr_tuple_header(ss, project_oper, select_stmt->aggr_funcs());
+  bool is_multi_table = select_stmt->tables().size() > 1;
+  print_aggr_tuple_header(ss, project_oper, select_stmt->aggr_funcs(), is_multi_table);
   
   LOG_INFO("DO AGGREGATION 2 2 2!! !! !!");
   int tuple_num = 0;
