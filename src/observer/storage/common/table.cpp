@@ -531,7 +531,8 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     if (field->type() != value.type) {
       if (field_type == INTS && value_type == FLOATS || field_type == FLOATS && value_type == INTS ||
           field_type == CHARS && value_type == INTS || field_type == INTS && value_type == CHARS ||
-          field_type == FLOATS && value_type == CHARS || field_type == CHARS && value_type == FLOATS) {
+          field_type == FLOATS && value_type == CHARS || field_type == CHARS && value_type == FLOATS ||
+          value_type == NULLTYPE) {
         continue;
       }
       LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
@@ -625,6 +626,12 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       LOG_DEBUG("data = %s", (char *)value_for_copy.data);
       LOG_TRACE("Exit\n");
       copy_len = data.size() + 1;
+    } else if (value.type == NULLTYPE) {
+      // if (field->nullable() == false) {
+      //   LOG_ERROR("field %s is not nullable", field->name());
+      //   return RC::INVALID_ARGUMENT;
+      // }
+
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
   }

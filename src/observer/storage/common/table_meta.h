@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/field_meta.h"
 #include "storage/common/index_meta.h"
 #include "common/lang/serializable.h"
+#include "common/lang/bitmap.h"
 
 class TableMeta : public common::Serializable {
 public:
@@ -39,6 +40,7 @@ public:
 public:
   const char *name() const;
   const FieldMeta *trx_field() const;
+  const FieldMeta *null_field() const;
   const FieldMeta *field(int index) const;
   const FieldMeta *field(const char *name) const;
   const FieldMeta *find_field_by_offset(int offset) const;
@@ -53,6 +55,9 @@ public:
   int index_num() const;
 
   int record_size() const;
+
+  void set_nullable(int i, bool nullable);
+  bool get_nullable(int i);
 
 public:
   int serialize(std::ostream &os) const override;
@@ -70,7 +75,7 @@ protected:
   std::vector<IndexMeta> indexes_;
 
   int record_size_ = 0;
-
+  int nullable_bitmap_ = 0;
   //@@@ TODO why used static variable?
   static std::vector<FieldMeta> sys_fields_;
 };

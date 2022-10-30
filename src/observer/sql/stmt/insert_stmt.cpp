@@ -2,7 +2,7 @@
  * @Author: 181830014 181830014@smail.nju.edu.cn
  * @Date: 2022-10-21 17:52:23
  * @LastEditors: 181830014 181830014@smail.nju.edu.cn
- * @LastEditTime: 2022-10-22 19:34:52
+ * @LastEditTime: 2022-10-29 23:37:41
  * @FilePath: /source/ocean/src/observer/sql/stmt/insert_stmt.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -77,9 +77,10 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
       field_type == CHARS && value_type == INTS ||
       field_type == INTS && value_type == CHARS ||
       field_type == FLOATS && value_type == CHARS ||
-      field_type == CHARS && value_type == FLOATS) {
+      field_type == CHARS && value_type == FLOATS ||
+      value_type == NULLTYPE) {
         continue;
-      }
+    }
     if (field_type != value_type) { // TODO try to convert the value type to field type
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d", 
                table_name, field_meta->name(), field_type, value_type);

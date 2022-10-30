@@ -92,7 +92,9 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
     rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true, attr_info.nullable);
-    if (rc != RC::SUCCESS || (0 == strcmp(attr_info.name, "id") && attr_info.nullable)) {
+    // czy add : 更新nullable_bitmap_位图
+    set_nullable(i, attr_info.nullable);
+    if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
     }
@@ -122,6 +124,11 @@ const char *TableMeta::name() const
 const FieldMeta *TableMeta::trx_field() const
 {
   return &fields_[0];
+}
+
+const FieldMeta *TableMeta::null_field() const
+{
+  return &fields_[1];
 }
 
 const FieldMeta *TableMeta::field(int index) const
@@ -159,6 +166,18 @@ int TableMeta::field_num() const
 int TableMeta::sys_field_num() const
 {
   return sys_fields_.size();
+}
+
+void TableMeta::set_nullable(int i, bool nullable) 
+{
+  if (nullable)
+    nullable_bitmap_ |= (1 << i);
+  else
+    nullable_bitmap_ &= ~(1 << i);
+}
+bool TableMeta::get_nullable(int i) 
+{
+  return (nullable_bitmap_ & (1 << i)) != 0;
 }
 
 const IndexMeta *TableMeta::index(const char *name) const

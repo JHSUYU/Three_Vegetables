@@ -1,0 +1,39 @@
+{
+	"fields" : 
+	[
+		{
+			"len" : 4,
+			"name" : "__trx",
+			"nullable" : false,
+			"offset" : 0,
+			"type" : "ints",
+			"visible" : false
+		},
+		{
+			"len" : 4,
+			"name" : "__null",
+			"nullable" : false,
+			"offset" : 4,
+			"type" : "ints",
+			"visible" : false
+		},
+		{
+			"len" : 4,
+			"name" : "id",
+			"nullable" : false,
+			"offset" : 8,
+			"type" : "ints",
+			"visible" : true
+		},
+		{
+			"len" : 4,
+			"name" : "id2",
+			"nullable" : true,
+			"offset" : 12,
+			"type" : "ints",
+			"visible" : true
+		}
+	],
+	"indexes" : null,
+	"table_name" : "bb"
+}
