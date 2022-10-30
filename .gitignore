@@ -13,6 +13,8 @@ compile_commands.json
 ./vcs.xml
 ./workspace.xml
 ./modules.xml
+miniob/*
+observer.log.*/*
 GRTAGS
 GPATH
 GTAGS

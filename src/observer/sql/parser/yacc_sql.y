@@ -111,6 +111,13 @@ ParserContext *get_context(yyscan_t scanner)
 		LK
 		NLK
 		UNIQUE
+		MAX
+		MIN
+		SUM
+		AVG
+		COUNT
+		COUNTALLXING
+		COUNTALL1
 
 %union {
   struct _Attr *attr;
@@ -433,6 +440,7 @@ select_attr_update_sub:
 			relation_attr_init(&attr, $1, $3);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
+	| aggr attr_list {}
     ;
     
 delete:		/*  delete 语句的语法解析树*/
@@ -502,7 +510,74 @@ select_attr:
 			relation_attr_init(&attr, $1, $3);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
+	| aggr attr_list {}
     ;
+
+aggr:
+	MAX LBRACE select_attr RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "MAX");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| MIN LBRACE select_attr RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "MIN");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| SUM LBRACE select_attr RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "SUM");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| AVG LBRACE select_attr RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "AVG");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT LBRACE select_attr RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNT");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNTALLXING {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNT(*)");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNTALL1 {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "COUNT(1)");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| MAX LBRACE RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "NONE");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| MIN LBRACE RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "NONE");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| AVG LBRACE RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "NONE");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| SUM LBRACE RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "NONE");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	| COUNT LBRACE RBRACE {
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, "NONE");
+		selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
+	;
+
+// aggr_func: MAX | MIN | AVG | SUM | COUNT
+
 attr_list:
     /* empty */
     | COMMA ID attr_list {
@@ -519,6 +594,7 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
+	| COMMA aggr attr_list {};
   	;
 
 index_list:

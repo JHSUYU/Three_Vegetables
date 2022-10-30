@@ -257,6 +257,49 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
     os << '\n';
   }
 }
+
+void print_aggr_tuple_header(std::ostream &os, const ProjectOperator &oper, std::vector<char *> aggr_funcs)
+{
+  const int cell_num = oper.tuple_cell_num();
+  const TupleCellSpec *cell_spec = nullptr;
+  int cell_index = cell_num - 1;
+  for (int i = aggr_funcs.size() - 1; i >= 0; i--) {
+    if (i != aggr_funcs.size() - 1) {
+      os << " | ";
+    }
+    if (0 == strncmp(aggr_funcs[i], "COUNT(", 6)) {
+      os << aggr_funcs[i];
+      continue;
+    }
+    oper.tuple_cell_spec_at(cell_index--, cell_spec);
+
+    if (cell_spec->alias()) {
+      os << aggr_funcs[i];
+      os << "(";
+      os << cell_spec->alias();
+      os << ")";
+    }
+  }
+
+  if (aggr_funcs.size() > 0) {
+    os << '\n';
+  }
+}
+
+void tuplecell_list_to_string(std::ostream &os, std::vector<TupleCell> tuple_cells)
+{
+  bool first_field = true;
+  for (int i = tuple_cells.size() - 1; i >= 0; i--) {
+    TupleCell cell = tuple_cells[i];
+    if (!first_field) {
+      os << " | ";
+    } else {
+      first_field = false;
+    }
+    cell.to_string(os);
+  }
+}
+
 void tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
   TupleCell cell;
@@ -278,7 +321,7 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
   }
 }
 
-void tuple_add_to_select_sub(const Tuple &tuple,Value* sub_select_value)
+void tuple_add_to_select_sub(const Tuple &tuple, Value *sub_select_value)
 {
   TupleCell cell;
   RC rc = RC::SUCCESS;
@@ -428,6 +471,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
+
 static RC check_select_meta(SelectStmt *select_stmt)
 {
   LOG_TRACE("Enter\n");
@@ -460,9 +504,363 @@ static RC check_select_meta(SelectStmt *select_stmt)
   return rc;
 }
 
+RC do_aggregation(SQLStageEvent *sql_event, ProjectOperator &project_oper)
+{
+  LOG_INFO("DO AGGREGATION 1 1 1!! !! !!");
+  RC rc = RC::SUCCESS;
+  std::stringstream ss;
+  SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
+  SessionEvent *session_event = sql_event->session_event();
+  const int cell_num = project_oper.tuple_cell_num();
+  // 新建vector <> aggr_funcs, 存储除了COUNT(1)/COUNT(*)以外的聚合函数
+  std::vector<char *> aggr_funcs;
+  for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+    char *aggr_func = select_stmt->aggr_funcs()[i];
+    if (0 != strncmp(aggr_func, "COUNT(", 6))
+      aggr_funcs.push_back(aggr_func);
+  }
+  if (aggr_funcs.size() != cell_num) {
+    LOG_WARN("aggr_funcs.size() = %d, but cell_num = %d", aggr_funcs.size(), cell_num);
+    return RC::SQL_SYNTAX;
+  }
+  print_aggr_tuple_header(ss, project_oper, select_stmt->aggr_funcs());
+
+  LOG_INFO("DO AGGREGATION 2 2 2!! !! !!");
+  int tuple_num = 0;
+  bool first_tuple = true;
+  std::vector<TupleCell> aggr_result;
+  while ((rc = project_oper.next()) == RC::SUCCESS) {
+    // get current record
+    // write to response
+    tuple_num++;
+    LOG_INFO("tuple_index = %d", tuple_num);
+    Tuple *tuple = project_oper.current_tuple();
+    if (nullptr == tuple) {
+      rc = RC::INTERNAL;
+      LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+      break;
+    }
+    TupleCell cell;
+    int *int_cur_sum = new int;
+    float *cur_sum = new float;
+    float *cell_data = new float;
+    int cell_index = 0;
+    for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+      char *aggr_func = select_stmt->aggr_funcs()[i];
+      if (0 == strncmp(aggr_func, "COUNT(", 6)) {
+        if (first_tuple) {
+          TupleCell *tmp = new TupleCell();
+          aggr_result.push_back(*tmp);
+        }
+        continue;
+      }
+      RC rc_cell = tuple->cell_at(cell_index++, cell);
+      if (rc_cell != RC::SUCCESS) {
+        LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
+        return rc_cell;
+      }
+      if (first_tuple) {
+        aggr_result.push_back(cell);
+      } else {
+        if (0 == strcmp(aggr_func, "MAX")) {
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.compare(cell) < 0)
+            aggr_result[i] = cell;
+        } else if (0 == strcmp(aggr_func, "MIN")) {
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.compare(cell) > 0)
+            aggr_result[i] = cell;
+        } else if (0 == strcmp(aggr_func, "SUM") || 0 == strcmp(aggr_func, "AVG")) {
+
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.attr_type() != INTS && ans_cell.attr_type() != FLOATS && ans_cell.attr_type() != CHARS)
+            return RC::INVALID_ARGUMENT;
+
+          // LOG_WARN("HERE 1......");
+          switch (ans_cell.attr_type()) {
+            case INTS:
+              *cur_sum = *(int *)ans_cell.data();
+              break;
+            case FLOATS:
+              *cur_sum = *(float *)ans_cell.data();
+              break;
+            case CHARS:
+              *cur_sum = atof(ans_cell.data());
+              break;
+            default:
+              return RC::INVALID_ARGUMENT;
+          }
+          // LOG_WARN("HERE 2......");
+          switch (cell.attr_type()) {
+            case INTS:
+              *cell_data = *(int *)cell.data();
+              break;
+            case FLOATS:
+              *cell_data = *(float *)cell.data();
+              break;
+            case CHARS:
+              *cell_data = atof(cell.data());
+              break;
+            default:
+              return RC::INVALID_ARGUMENT;
+          }
+
+          *cur_sum += *cell_data;
+          LOG_INFO("cur_sum = %.2lf, cell_data = %.2lf", *cur_sum, *cell_data);
+          switch (ans_cell.attr_type()) {
+            case INTS: {
+              *int_cur_sum = *cur_sum;
+              ans_cell.set_data((char *)int_cur_sum);
+            } break;
+            case FLOATS: {
+              ans_cell.set_data((char *)cur_sum);
+            } break;
+            case CHARS: {
+              ans_cell.set_type(FLOATS);
+              ans_cell.set_data((char *)cur_sum);
+            } break;
+          }
+          aggr_result[i] = ans_cell;
+        } else if (0 == strcmp(aggr_func, "COUNT")) {
+          continue;
+        } else
+          return RC::INVALID_ARGUMENT;
+      }
+    }
+
+    first_tuple = false;
+  }
+
+  LOG_INFO("tuple_num = %d", tuple_num);
+  // 处理空表情况 default=0, TODO: 改为非INT类型
+  if (tuple_num == 0) {
+    for (int i = 0; i < aggr_result.size(); i++) {
+      char *aggr_func = select_stmt->aggr_funcs()[i];
+      TupleCell cell;
+      int *data = new int;
+      *data = 0;
+      cell.set_type(INTS);
+      cell.set_data((char *)data);
+    }
+  }
+  // 处理空表结束
+
+  for (int i = 0; i < aggr_result.size(); i++) {
+    TupleCell cell = aggr_result[i];
+    char *aggr_func = select_stmt->aggr_funcs()[i];
+    if (0 == strncmp(aggr_func, "COUNT", 5)) {
+      int *count = new int;
+      *count = tuple_num;
+      LOG_INFO("COUNT = %d", *count);
+      cell.set_type(INTS);
+      cell.set_data((char *)count);
+      aggr_result[i] = cell;
+    } else if (0 == strcmp(aggr_func, "AVG")) {
+      float sum = 0;
+      if (cell.attr_type() == INTS)
+        sum = *(int *)cell.data();
+      else
+        sum = *(float *)cell.data();
+      float *avg = new float;
+      *avg = sum / tuple_num;
+      LOG_INFO("AVERAGE = %.2lf", *avg);
+      cell.set_type(FLOATS);
+      cell.set_data((char *)avg);
+      aggr_result[i] = cell;
+    }
+  }
+  // apply_aggr_to_tuple(select_stmt, *tuple);
+  tuplecell_list_to_string(ss, aggr_result);
+  ss << std::endl;
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+    project_oper.close();
+  } else {
+    rc = project_oper.close();
+  }
+  session_event->set_response(ss.str());
+  return rc;
+}
+
+// zhenyu 屎山预警！！
+RC do_aggregation_for_update(
+    SelectStmt *select_stmt, ProjectOperator &project_oper, std::vector<TupleCell> &aggr_result)
+{
+  LOG_INFO("DO AGGREGATION 1 1 1!! !! !!");
+  RC rc = RC::SUCCESS;
+  const int cell_num = project_oper.tuple_cell_num();
+  // 新建vector <> aggr_funcs, 存储除了COUNT(1)/COUNT(*)以外的聚合函数
+  std::vector<char *> aggr_funcs;
+  for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+    char *aggr_func = select_stmt->aggr_funcs()[i];
+    if (0 != strncmp(aggr_func, "COUNT(", 6))
+      aggr_funcs.push_back(aggr_func);
+  }
+  if (aggr_funcs.size() != cell_num) {
+    LOG_WARN("aggr_funcs.size() = %d, but cell_num = %d", aggr_funcs.size(), cell_num);
+    return RC::SQL_SYNTAX;
+  }
+  // print_aggr_tuple_header(ss, project_oper, select_stmt->aggr_funcs());
+
+  LOG_INFO("DO AGGREGATION 2 2 2!! !! !!");
+  int tuple_num = 0;
+  bool first_tuple = true;
+  while ((rc = project_oper.next()) == RC::SUCCESS) {
+    // get current record
+    // write to response
+    tuple_num++;
+    LOG_INFO("tuple_index = %d", tuple_num);
+    Tuple *tuple = project_oper.current_tuple();
+    if (nullptr == tuple) {
+      rc = RC::INTERNAL;
+      LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+      break;
+    }
+    TupleCell cell;
+    int *int_cur_sum = new int;
+    float *cur_sum = new float;
+    float *cell_data = new float;
+    int cell_index = 0;
+    for (int i = 0; i < select_stmt->aggr_funcs().size(); i++) {
+      char *aggr_func = select_stmt->aggr_funcs()[i];
+      if (0 == strncmp(aggr_func, "COUNT(", 6)) {
+        if (first_tuple) {
+          TupleCell *tmp = new TupleCell();
+          aggr_result.push_back(*tmp);
+        }
+        continue;
+      }
+      RC rc_cell = tuple->cell_at(cell_index++, cell);
+      if (rc_cell != RC::SUCCESS) {
+        LOG_WARN("failed to fetch field of cell. index=%d, rc=%s", i, strrc(rc));
+        return rc_cell;
+      }
+      if (first_tuple) {
+        aggr_result.push_back(cell);
+      } else {
+        if (0 == strcmp(aggr_func, "MAX")) {
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.compare(cell) < 0)
+            aggr_result[i] = cell;
+        } else if (0 == strcmp(aggr_func, "MIN")) {
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.compare(cell) > 0)
+            aggr_result[i] = cell;
+        } else if (0 == strcmp(aggr_func, "SUM") || 0 == strcmp(aggr_func, "AVG")) {
+
+          TupleCell ans_cell = aggr_result[i];
+          if (ans_cell.attr_type() != INTS && ans_cell.attr_type() != FLOATS && ans_cell.attr_type() != CHARS)
+            return RC::INVALID_ARGUMENT;
+
+          // LOG_WARN("HERE 1......");
+          switch (ans_cell.attr_type()) {
+            case INTS:
+              *cur_sum = *(int *)ans_cell.data();
+              break;
+            case FLOATS:
+              *cur_sum = *(float *)ans_cell.data();
+              break;
+            case CHARS:
+              *cur_sum = atof(ans_cell.data());
+              break;
+            default:
+              return RC::INVALID_ARGUMENT;
+          }
+          // LOG_WARN("HERE 2......");
+          switch (cell.attr_type()) {
+            case INTS:
+              *cell_data = *(int *)cell.data();
+              break;
+            case FLOATS:
+              *cell_data = *(float *)cell.data();
+              break;
+            case CHARS:
+              *cell_data = atof(cell.data());
+              break;
+            default:
+              return RC::INVALID_ARGUMENT;
+          }
+
+          *cur_sum += *cell_data;
+          LOG_INFO("cur_sum = %.2lf, cell_data = %.2lf", *cur_sum, *cell_data);
+          switch (ans_cell.attr_type()) {
+            case INTS: {
+              *int_cur_sum = *cur_sum;
+              ans_cell.set_data((char *)int_cur_sum);
+            } break;
+            case FLOATS: {
+              ans_cell.set_data((char *)cur_sum);
+            } break;
+            case CHARS: {
+              ans_cell.set_type(FLOATS);
+              ans_cell.set_data((char *)cur_sum);
+            } break;
+          }
+          aggr_result[i] = ans_cell;
+        } else if (0 == strcmp(aggr_func, "COUNT")) {
+          continue;
+        } else
+          return RC::INVALID_ARGUMENT;
+      }
+    }
+
+    first_tuple = false;
+  }
+
+  LOG_INFO("tuple_num = %d", tuple_num);
+  // 处理空表情况 default=0, TODO: 改为非INT类型
+  if (tuple_num == 0) {
+    for (int i = 0; i < aggr_result.size(); i++) {
+      char *aggr_func = select_stmt->aggr_funcs()[i];
+      TupleCell cell;
+      int *data = new int;
+      *data = 0;
+      cell.set_type(INTS);
+      cell.set_data((char *)data);
+    }
+  }
+  // 处理空表结束
+
+  for (int i = 0; i < aggr_result.size(); i++) {
+    TupleCell cell = aggr_result[i];
+    char *aggr_func = select_stmt->aggr_funcs()[i];
+    if (0 == strncmp(aggr_func, "COUNT", 5)) {
+      int *count = new int;
+      *count = tuple_num;
+      LOG_INFO("COUNT = %d", *count);
+      cell.set_type(INTS);
+      cell.set_data((char *)count);
+      aggr_result[i] = cell;
+    } else if (0 == strcmp(aggr_func, "AVG")) {
+      float sum = 0;
+      if (cell.attr_type() == INTS)
+        sum = *(int *)cell.data();
+      else
+        sum = *(float *)cell.data();
+      float *avg = new float;
+      *avg = sum / tuple_num;
+      LOG_INFO("AVERAGE = %.2lf", *avg);
+      cell.set_type(FLOATS);
+      cell.set_data((char *)avg);
+      aggr_result[i] = cell;
+    }
+  }
+  // apply_aggr_to_tuple(select_stmt, *tuple);
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+    project_oper.close();
+  } else {
+    rc = project_oper.close();
+  }
+  return rc;
+}
+
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   LOG_TRACE("Enter\n");
+  LOG_INFO("Enter DO_SELECT!!!");
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
@@ -471,8 +869,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = RC::UNIMPLENMENT;
     return rc;
   }
+
   rc = check_select_meta(select_stmt);
   if (rc != RC::SUCCESS) {
+    LOG_WARN("check select meta failed!");
     return rc;
   }
   Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
@@ -480,6 +880,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     scan_oper = new TableScanOperator(select_stmt->tables()[0]);
   }
 
+  LOG_INFO("BEFORE DEFER ... is_aggr = %d", (int)select_stmt->is_aggregation());
   DEFER([&]() { delete scan_oper; });
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
@@ -492,6 +893,14 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
+    return rc;
+  }
+
+  if (select_stmt->is_aggregation() == true) {
+    rc = do_aggregation(sql_event, project_oper);
+    if (rc != RC::SUCCESS) {
+      session_event->set_response("FAILURE\n");
+    }
     return rc;
   }
 
@@ -536,18 +945,19 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
         select->attr_num,
         select->relation_num,
         select->condition_num);
-    if (select->attr_num > 1) {
-      LOG_INFO("More than one attribute");
-      return RC::SCHEMA_TABLE_EXIST;
-    }
     Stmt *select_stmt_ = nullptr;
-    RC create_temp=SelectStmt::create(db, *select, select_stmt_);
-    if(create_temp!=RC::SUCCESS){
-      create_temp=RC::UNIMPLENMENT;
+    RC create_temp = SelectStmt::create(db, *select, select_stmt_);
+
+    if (create_temp != RC::SUCCESS) {
+      create_temp = RC::UNIMPLENMENT;
       return create_temp;
     }
     LOG_TRACE("Enter\n");
     SelectStmt *select_stmt = (SelectStmt *)select_stmt_;
+    if (select->attr_num > 1 && select_stmt->is_aggregation() != true) {
+      LOG_INFO("More than one attribute");
+      return RC::SCHEMA_TABLE_EXIST;
+    }
     RC rc = RC::SUCCESS;
     if (select_stmt->tables().size() != 1) {
       LOG_WARN("select more than 1 tables is not supported");
@@ -572,25 +982,35 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
       project_oper.add_projection(field.table(), field.meta());
     }
     rc = project_oper.open();
+    if (select_stmt->is_aggregation() == true) {
+      std::vector<TupleCell> aggr_result;
+      rc = do_aggregation_for_update(select_stmt, project_oper, aggr_result);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      if (aggr_result.size() > 1) {
+        return RC::ABORT;
+      }
+      TupleCell &cell = aggr_result[0];
+      cell.add_to_value_data(cur_value);
+    }
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to open operator");
       return rc;
     }
-    int count=1;
-    const Field & field_cur=select_stmt->query_fields()[0];
-    if(field_cur.attr_type()==CHARS){
-      cur_value->type=CHARS;
-    }
-    else if(field_cur.attr_type()==INTS){
-      cur_value->type=INTS;
-    }
-    else if(field_cur.attr_type()==FLOATS){
-      cur_value->type=FLOATS;
+    int count = 1;
+    const Field &field_cur = select_stmt->query_fields()[0];
+    if (field_cur.attr_type() == CHARS) {
+      cur_value->type = CHARS;
+    } else if (field_cur.attr_type() == INTS) {
+      cur_value->type = INTS;
+    } else if (field_cur.attr_type() == FLOATS) {
+      cur_value->type = FLOATS;
     }
     while ((rc = project_oper.next()) == RC::SUCCESS) {
       // get current record
       // write to response
-      if(count>1){
+      if (count > 1) {
         rc = RC::INTERNAL;
         LOG_WARN("More than one record");
         break;
@@ -601,8 +1021,8 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
         LOG_WARN("failed to get current record. rc=%s", strrc(rc));
         break;
       }
-      tuple_add_to_select_sub((*tuple),cur_value);
-      count+=1;
+      tuple_add_to_select_sub((*tuple), cur_value);
+      count += 1;
     }
 
     if (rc != RC::RECORD_EOF) {
@@ -611,12 +1031,11 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
     } else {
       rc = project_oper.close();
     }
-    if(rc!=RC::SUCCESS){
+    if (rc != RC::SUCCESS) {
       return rc;
     }
   }
   return RC::SUCCESS;
-
 }
 
 // hsy add
@@ -628,7 +1047,7 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   }
   UpdateStmt *update_stmt = (UpdateStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
-  Updates* update=&sql_event->query()->sstr.update;
+  Updates *update = &sql_event->query()->sstr.update;
   RC rc = RC::SUCCESS;
   if (update_stmt->table() == nullptr) {
     LOG_WARN("target table for updating does not exist.");
@@ -682,16 +1101,16 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
     LOG_DEBUG("create index scan operator failed, start to create table scan operator");
     scan_oper = new TableScanOperator(update_stmt->table());
   }
-  Value* value_temp[MAX_NUM];
-  for(int i=0;i<update->value_num;i++){
-    LOG_INFO("The type is %d",update->values[i].type);
-    value_temp[i]=&update->values[i];
+  Value *value_temp[MAX_NUM];
+  for (int i = 0; i < update->value_num; i++) {
+    LOG_INFO("The type is %d", update->values[i].type);
+    value_temp[i] = &update->values[i];
   }
   Db *db = session_event->session()->get_current_db();
   DEFER([&]() { delete scan_oper; });
-  LOG_DEBUG("have %d values to update",update->value_num);
-  LOG_DEBUG("Type is %d",update->values[0].type);
-  RC temp=convert_select_sub_query(db, update->value_num, value_temp);
+  LOG_DEBUG("have %d values to update", update->value_num);
+  LOG_DEBUG("Type is %d", update->values[0].type);
+  RC temp = convert_select_sub_query(db, update->value_num, value_temp);
   if (temp != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
     return temp;
