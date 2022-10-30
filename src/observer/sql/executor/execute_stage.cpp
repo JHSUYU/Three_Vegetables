@@ -541,7 +541,11 @@ RC static convert_select_sub_query(Db *db, size_t value_amount, Value **value_li
       return RC::SCHEMA_TABLE_EXIST;
     }
     Stmt *select_stmt_ = nullptr;
-    SelectStmt::create(db, *select, select_stmt_);
+    RC create_temp=SelectStmt::create(db, *select, select_stmt_);
+    if(create_temp!=RC::SUCCESS){
+      create_temp=RC::UNIMPLENMENT;
+      return create_temp;
+    }
     LOG_TRACE("Enter\n");
     SelectStmt *select_stmt = (SelectStmt *)select_stmt_;
     RC rc = RC::SUCCESS;
