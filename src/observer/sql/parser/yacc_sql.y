@@ -117,6 +117,7 @@ ParserContext *get_context(yyscan_t scanner)
 		ISS
 		NULL_
 		NULLABLE
+		NOT_NULL
 
 %union {
   struct _Attr *attr;
@@ -289,6 +290,21 @@ attr_def:
 			CONTEXT->value_length++;
 		}
     |ID_get type
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, false);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			// default attribute length
+			CONTEXT->value_length++;
+		}
+	|ID_get type LBRACE number RBRACE NOT_NULL
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, false);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NOT_NULL
 		{
 			AttrInfo attribute;
 			attr_info_init(&attribute, CONTEXT->id, $2, 4, false);

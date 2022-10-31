@@ -61,6 +61,7 @@ Tuple * PredicateOperator::current_tuple()
 
 bool PredicateOperator::do_predicate(RowTuple &tuple)
 {
+  LOG_INFO("do_predicate()");
   if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
     return true;
   }

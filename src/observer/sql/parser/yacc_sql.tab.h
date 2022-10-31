@@ -110,13 +110,14 @@ extern int yydebug;
     ISS = 311,                     /* ISS  */
     NULL_ = 312,                   /* NULL_  */
     NULLABLE = 313,                /* NULLABLE  */
-    NUMBER = 314,                  /* NUMBER  */
-    FLOAT = 315,                   /* FLOAT  */
-    ID = 316,                      /* ID  */
-    PATH = 317,                    /* PATH  */
-    SSS = 318,                     /* SSS  */
-    STAR = 319,                    /* STAR  */
-    STRING_V = 320                 /* STRING_V  */
+    NOT_NULL = 314,                /* NOT_NULL  */
+    NUMBER = 315,                  /* NUMBER  */
+    FLOAT = 316,                   /* FLOAT  */
+    ID = 317,                      /* ID  */
+    PATH = 318,                    /* PATH  */
+    SSS = 319,                     /* SSS  */
+    STAR = 320,                    /* STAR  */
+    STRING_V = 321                 /* STRING_V  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -180,19 +181,20 @@ extern int yydebug;
 #define ISS 311
 #define NULL_ 312
 #define NULLABLE 313
-#define NUMBER 314
-#define FLOAT 315
-#define ID 316
-#define PATH 317
-#define SSS 318
-#define STAR 319
-#define STRING_V 320
+#define NOT_NULL 314
+#define NUMBER 315
+#define FLOAT 316
+#define ID 317
+#define PATH 318
+#define SSS 319
+#define STAR 320
+#define STRING_V 321
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 121 "yacc_sql.y"
+#line 122 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -202,7 +204,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 206 "y.tab.h"
+#line 208 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

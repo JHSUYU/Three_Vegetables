@@ -85,6 +85,7 @@ QUOTE            [\'\"]
 [Ii][Ss]{WHITE_SAPCE}[Nn][Oo][Tt]                    RETURN_TOKEN(ISS_NOT);
 [Ii][Ss]                                             RETURN_TOKEN(ISS);
 [Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]                     RETURN_TOKEN(NULLABLE);
+[Nn][Oo][Tt]{WHITE_SAPCE}[Nn][Uu][Ll][Ll]            RETURN_TOKEN(NOT_NULL);
 [Nn][Uu][Ll][Ll]                                     RETURN_TOKEN(NULL_);
 
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);

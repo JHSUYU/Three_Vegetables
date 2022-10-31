@@ -549,7 +549,14 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     Value value_for_copy = value;
     size_t copy_len = field->len();
     LOG_INFO("copy_len = %d", copy_len);
-    if (field->type() == CHARS && value.type == CHARS) {
+    if (value.type == NULLTYPE) {
+      // 修改sys_field:__null的值
+      LOG_INFO("value.type == NULLTYPE!\n");
+      null_bitmap |= (1 << i);
+      // LOG_INFO("out value.type == NULLTYPE");
+      continue;
+    }
+    else if (field->type() == CHARS && value.type == CHARS) {
       const size_t data_len = strlen((const char *)value.data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
@@ -620,19 +627,13 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       LOG_INFO("data = %s", (char *)value_for_copy.data);
       LOG_INFO("Exit\n");
       copy_len = data.size() + 1;
-    } else if (value.type == NULLTYPE) {
-      // 修改sys_field:__null的值
-      null_bitmap |= (1 << i);
-      int *p = &null_bitmap;
-      copy_len = sizeof(int);
-      memcpy(record + null_field->offset(), (void *)p, copy_len);
-      LOG_INFO("in value.type == NULLTYPE, null_bitmap = %d", null_bitmap);
-      // LOG_INFO("out value.type == NULLTYPE");
-      continue;
     }
     memcpy(record + field->offset(), value_for_copy.data, copy_len);
   }
-
+  int *p = &null_bitmap;
+  memcpy(record + null_field->offset(), (void *)p, sizeof(int));
+  LOG_INFO("in value.type == NULLTYPE, null_bitmap = %d", null_bitmap);
+      
   record_out = record;
   return RC::SUCCESS;
 }

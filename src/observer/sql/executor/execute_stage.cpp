@@ -130,6 +130,7 @@ void ExecuteStage::callback_event(StageEvent *event, CallbackContext *context)
 void ExecuteStage::handle_request(common::StageEvent *event)
 {
   LOG_TRACE("Enter\n");
+  LOG_INFO("handle_request...\n");
   SQLStageEvent *sql_event = static_cast<SQLStageEvent *>(event);
   SessionEvent *session_event = sql_event->session_event();
   Stmt *stmt = sql_event->stmt();

@@ -98,6 +98,8 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     return RC::INVALID_ARGUMENT;
   }
 
+  LOG_INFO("Begin create filter unit...\n");
+
   Expression *left = nullptr;
   Expression *right = nullptr;
   if (condition.left_is_attr) {
@@ -127,7 +129,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     }
     right = new FieldExpr(table, field);
     Condition condition_cpy = condition;
-    if (((FieldExpr*)right)->field().attr_type() == DATES) {
+    if (((FieldExpr*)right)->field().attr_type() == DATES && condition.left_value.type != NULLTYPE) {
         std::vector<std::string> date;
         common::split_string((char*)condition.left_value.data, "-", date);
       if (date.size() != 3) {
@@ -149,7 +151,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   } else {
     LOG_TRACE("Enter\n");
     Condition condition_cpy = condition;
-    if (condition.left_is_attr && ((FieldExpr*)left)->field().attr_type() == DATES) {
+    if (condition.left_is_attr && ((FieldExpr*)left)->field().attr_type() == DATES && condition.right_value.type != NULLTYPE) {
         std::vector<std::string> date;
         common::split_string((char*)condition.right_value.data, "-", date);
       if (date.size() != 3) {
@@ -175,5 +177,6 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   filter_unit->set_right(right);
 
   // 检查两个类型是否能够比较
+  LOG_INFO("End create filter unit...\n");
   return rc;
 }

@@ -171,6 +171,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   }
 
   // create filter statement in `where` statement
+  LOG_INFO("Before create filter_stmt...\n");
   FilterStmt *filter_stmt = nullptr;
   RC rc = FilterStmt::create(db, default_table, &table_map,
            select_sql.conditions, select_sql.condition_num, filter_stmt);
@@ -178,6 +179,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
+  LOG_INFO("After create filter_stmt...\n");
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
@@ -187,5 +189,6 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->is_aggregation_ = is_aggregation;
   stmt = select_stmt;
+  LOG_INFO("create stmt success...\n");
   return RC::SUCCESS;
 }
